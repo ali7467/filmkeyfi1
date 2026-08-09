@@ -1,14 +1,27 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { DoorOpen, Users, Lock, Crown, Loader2 } from 'lucide-react';
+import { DoorOpen, Users, Lock, Loader2 } from 'lucide-react';
+import { Image } from '@/components/ui/image';
 
 export default function OpenRooms() {
   const [rooms, setRooms] = useState([]);
+  const [movies, setMovies] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    base44.entities.Room.filter({ status: 'active' }, '-created_date', 200).then((r) => { setRooms(r); setLoading(false); }).catch(() => setLoading(false));
+    const load = async () => {
+      try {
+        const [r, m] = await Promise.all([
+          base44.entities.Room.filter({ status: 'active' }, '-created_date', 200).catch(() => []),
+          base44.entities.Movie.list(500).catch(() => []),
+        ]);
+        setRooms(r);
+        const map = {}; m.forEach((mv) => { map[mv.id] = mv; });
+        setMovies(map);
+      } finally { setLoading(false); }
+    };
+    load();
     const unsub = base44.entities.Room.subscribe((ev) => {
       if (ev.type === 'create' && ev.data?.status === 'active') setRooms((p) => [ev.data, ...p.filter((x) => x.id !== ev.data.id)]);
       if (ev.type === 'update') setRooms((p) => p.map((x) => (x.id === ev.data.id ? ev.data : x)).filter((x) => x.status === 'active'));
@@ -29,20 +42,25 @@ export default function OpenRooms() {
            <Link to="/oda-kur" className="text-primary text-sm hover:underline">İlk odayı sen kur</Link>
          </div>
        ) : (
-         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-           {rooms.map((r) => (
-             <Link key={r.id} to={`/oda/${r.id}`} className="bg-card border border-border rounded-xl p-4 hover:border-primary transition-colors">
-               <div className="flex items-center justify-between mb-2">
-                 <h3 className="font-bold truncate">{r.name}</h3>
-                 {r.password && <Lock className="w-4 h-4 text-amber-400 shrink-0" />}
+         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+           {rooms.map((r, i) => {
+             const mv = movies[r.movie_id];
+             return (
+               <div key={r.id} className="flex flex-col items-center">
+                 <div className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-full overflow-hidden border-4 border-primary/40 shadow-lg group">
+                   {mv?.poster ? <Image src={mv.poster} className="w-full h-full" fittingType="fill" /> :
+                     <div className="w-full h-full bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center text-3xl">🎬</div>}
+                   <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors" />
+                   {r.password && <span className="absolute top-1 right-1 bg-black/70 rounded-full p-1.5"><Lock className="w-3.5 h-3.5 text-amber-400" /></span>}
+                   <span className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full">Oda {i + 1}</span>
+                   <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1"><Users className="w-3 h-3" /> {r.participants?.length || 0}/{r.max_users}</div>
+                 </div>
+                 <p className="mt-2 text-sm font-semibold text-center truncate max-w-full">{r.name}</p>
+                 <p className="text-xs text-muted-foreground truncate max-w-full mb-2">{r.movie_title || mv?.title || 'İçerik'}</p>
+                 <Link to={`/oda/${r.id}`} className="bg-primary text-primary-foreground text-sm font-semibold px-5 py-1.5 rounded-full hover:bg-primary/90">Katıl</Link>
                </div>
-               <p className="text-sm text-muted-foreground truncate mb-3">{r.movie_title || 'İçerik seçilmedi'}</p>
-               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                 <span className="inline-flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {r.participants?.length || 0}/{r.max_users}</span>
-                 <span className="inline-flex items-center gap-1"><Crown className="w-3.5 h-3.5 text-amber-400" /> {r.owner_name || 'Anonim'}</span>
-               </div>
-             </Link>
-           ))}
+             );
+           })}
          </div>
        )}
     </div>

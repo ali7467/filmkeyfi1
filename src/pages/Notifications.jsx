@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useCurrentUser } from '@/lib/useCurrentUser';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, Trash2 } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 import { Link } from 'react-router-dom';
 import EmptyState from '@/components/movie/EmptyState';
 
 export default function Notifications() {
   const { user } = useCurrentUser();
+  const { toast } = useToast();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,12 +30,19 @@ export default function Notifications() {
     await Promise.all(items.filter((n) => !n.read).map((n) => base44.entities.Notification.update(n.id, { read: true })));
     load();
   };
+  const deleteAll = async () => {
+    await base44.entities.Notification.deleteMany({ user_id: user.id });
+    setItems([]); toast({ title: 'Tüm bildirimler silindi' });
+  };
 
   return (
     <div className="px-4 sm:px-6 py-6 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-extrabold flex items-center gap-2"><Bell className="w-6 h-6 text-primary" /> Bildirimler</h1>
-        {items.some((n) => !n.read) && <button onClick={markAll} className="text-sm text-primary flex items-center gap-1"><Check className="w-4 h-4" /> Tümünü okundu işaretle</button>}
+        <div className="flex items-center gap-3">
+          {items.some((n) => !n.read) && <button onClick={markAll} className="text-sm text-primary flex items-center gap-1"><Check className="w-4 h-4" /> Tümünü okundu</button>}
+          {items.length > 0 && <button onClick={deleteAll} className="text-sm text-destructive flex items-center gap-1"><Trash2 className="w-4 h-4" /> Tümünü Sil</button>}
+        </div>
       </div>
       {loading ? <p className="text-muted-foreground">Yükleniyor...</p> :
        items.length === 0 ? <EmptyState icon={Bell} title="Bildirim yok" description="Henüz bildiriminiz bulunmuyor." /> :

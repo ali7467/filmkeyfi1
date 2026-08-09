@@ -77,8 +77,8 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
                    </div>
                    <p className="text-sm break-words bg-secondary/50 rounded-lg px-2.5 py-1.5 inline-block">{m.text}</p>
                  </div>
-                 {user?.id === m.user_id && (
-                   <button onClick={() => del(m.id)} className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                 {(isOwner || user?.id === m.user_id) && (
+                   <button onClick={() => del(m.id)} className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive" title={isOwner && user?.id !== m.user_id ? 'Sahip: herkesten sil' : 'Sil'}><Trash2 className="w-3.5 h-3.5" /></button>
                  )}
                </>
              )}
