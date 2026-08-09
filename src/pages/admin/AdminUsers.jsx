@@ -49,36 +49,32 @@ export default function AdminUsers({ pendingOnly = false }) {
     <div>
       <h1 className="text-2xl font-extrabold mb-4">{pendingOnly ? 'Kayıt Kontrol' : 'Kullanıcı Yönetimi'}</h1>
       {users.length === 0 ? <p className="text-muted-foreground text-sm">{pendingOnly ? 'Onay bekleyen kayıt yok.' : 'Kullanıcı yok.'}</p> :
-        <div className="overflow-x-auto bg-card border border-border rounded-xl">
-          <table className="w-full text-sm min-w-[700px]">
-            <thead className="bg-secondary/50 text-muted-foreground text-xs uppercase">
-              <tr><th className="text-left p-3">Kullanıcı</th><th className="text-left p-3">E-posta</th><th className="text-left p-3">Durum</th><th className="text-left p-3">Bitiş</th><th className="text-right p-3">İşlem</th></tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-t border-border">
-                  <td className="p-3 font-medium">{u.username || u.full_name}</td>
-                  <td className="p-3 text-muted-foreground">{u.email}</td>
-                  <td className="p-3"><span className={`text-xs px-2 py-1 rounded ${u.membership_status === 'active' ? 'bg-green-500/20 text-green-400' : u.membership_status === 'pending' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>{u.membership_status}</span></td>
-                  <td className="p-3 text-muted-foreground">{u.membership_end ? new Date(u.membership_end).toLocaleDateString('tr-TR') : '-'}</td>
-                  <td className="p-3">
-                    <div className="flex justify-end gap-1 flex-wrap">
-                      {pendingOnly ? <>
-                        <button onClick={() => approve(u)} className="p-1.5 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30" title="Onayla"><Check className="w-4 h-4" /></button>
-                        <button onClick={() => reject(u)} className="p-1.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30" title="Reddet"><X className="w-4 h-4" /></button>
-                      </> : <>
-                        <button onClick={() => setDetail(u)} className="p-1.5 rounded bg-secondary hover:bg-secondary/70" title="Detay"><Eye className="w-4 h-4" /></button>
-                        {u.membership_status === 'active' ? <button onClick={() => block(u)} className="p-1.5 rounded bg-amber-500/20 text-amber-400" title="Engelle"><Ban className="w-4 h-4" /></button> : <button onClick={() => activate(u)} className="p-1.5 rounded bg-green-500/20 text-green-400" title="Aktif et"><Check className="w-4 h-4" /></button>}
-                        <button onClick={() => extend(u)} className="p-1.5 rounded bg-blue-500/20 text-blue-400" title="Üyelik uzat">+30</button>
-                        <button onClick={() => resetPass(u)} className="p-1.5 rounded bg-purple-500/20 text-purple-400" title="Şifre sıfırla"><KeyRound className="w-4 h-4" /></button>
-                      </>}
-                      <button onClick={() => setConfirm(u)} className="p-1.5 rounded bg-red-500/20 text-red-400" title="Sil"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-2">
+          {users.map((u) => (
+            <div key={u.id} className="bg-card border border-border rounded-xl p-3 flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center font-bold shrink-0">{(u.username || u.full_name || '?')[0]}</div>
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{u.username || u.full_name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                </div>
+              </div>
+              <span className={`text-xs px-2 py-1 rounded ${u.membership_status === 'active' ? 'bg-green-500/20 text-green-400' : u.membership_status === 'pending' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>{u.membership_status}</span>
+              <span className="text-xs text-muted-foreground">{u.membership_end ? new Date(u.membership_end).toLocaleDateString('tr-TR') : '-'}</span>
+              <div className="flex gap-1 flex-wrap">
+                {pendingOnly ? <>
+                  <button onClick={() => approve(u)} className="p-2 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30" title="Onayla"><Check className="w-4 h-4" /></button>
+                  <button onClick={() => reject(u)} className="p-2 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30" title="Reddet"><X className="w-4 h-4" /></button>
+                </> : <>
+                  <button onClick={() => setDetail(u)} className="p-2 rounded bg-secondary hover:bg-secondary/70" title="Detay"><Eye className="w-4 h-4" /></button>
+                  {u.membership_status === 'active' ? <button onClick={() => block(u)} className="p-2 rounded bg-amber-500/20 text-amber-400" title="Engelle"><Ban className="w-4 h-4" /></button> : <button onClick={() => activate(u)} className="p-2 rounded bg-green-500/20 text-green-400" title="Aktif et"><Check className="w-4 h-4" /></button>}
+                  <button onClick={() => extend(u)} className="px-2 rounded bg-blue-500/20 text-blue-400 text-xs font-bold" title="Üyelik uzat">+30</button>
+                  <button onClick={() => resetPass(u)} className="p-2 rounded bg-purple-500/20 text-purple-400" title="Şifre sıfırla"><KeyRound className="w-4 h-4" /></button>
+                </>}
+                <button onClick={() => setConfirm(u)} className="p-2 rounded bg-red-500/20 text-red-400" title="Sil"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            </div>
+          ))}
         </div>}
 
       {detail && (

@@ -7,7 +7,7 @@ import { useCurrentUser } from '@/lib/useCurrentUser';
 const links = [
   { label: 'Ana Sayfa', path: '/' },
   { label: 'Filmler', path: '/filmler' },
-  { label: 'Diziler', path: '/diziler' },
+  { label: 'Açık Odalar', path: '/acik-odalar' },
   { label: 'Kategoriler', path: '/kategoriler' },
   { label: 'Listem', path: '/listem' },
 ];

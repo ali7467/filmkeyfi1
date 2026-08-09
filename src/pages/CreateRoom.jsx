@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
-import { Users, Lock, MessageSquare, Mic } from 'lucide-react';
+import { Users, Lock, MessageSquare, Mic, DoorOpen } from 'lucide-react';
 
 export default function CreateRoom() {
   const navigate = useNavigate();
@@ -37,7 +37,10 @@ export default function CreateRoom() {
 
   return (
     <div className="px-4 sm:px-6 py-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-extrabold mb-1 flex items-center gap-2"><Users className="w-6 h-6 text-primary" /> Oda Kur</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-extrabold flex items-center gap-2"><Users className="w-6 h-6 text-primary" /> Oda Kur</h1>
+        <Link to="/acik-odalar" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"><DoorOpen className="w-4 h-4" /> Açık Odalar</Link>
+      </div>
       <p className="text-sm text-muted-foreground mb-6">Arkadaşlarınla birlikte izlemek için bir Watch Party odası oluştur.</p>
       <form onSubmit={submit} className="space-y-4">
         <div>
@@ -54,7 +57,10 @@ export default function CreateRoom() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-sm font-medium block mb-1.5 flex items-center gap-1"><Lock className="w-4 h-4" /> Şifre (opsiyonel)</label>
-            <input className={field} type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Boş = şifresiz" />
+            <div className="flex gap-2">
+              <input className={field} type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Boş = şifresiz" />
+              <button type="button" onClick={() => setForm({ ...form, password: Math.random().toString(36).slice(2, 8).toUpperCase() })} className="shrink-0 px-3 rounded-lg bg-secondary border border-border text-sm font-medium hover:bg-secondary/70">Oluştur</button>
+            </div>
           </div>
           <div>
             <label className="text-sm font-medium block mb-1.5">Maks. Kullanıcı</label>

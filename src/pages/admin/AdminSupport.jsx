@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
-import { Send } from 'lucide-react';
+import { Send, Trash2, XCircle } from 'lucide-react';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 export default function AdminSupport() {
   const { user: admin } = useCurrentUser();
@@ -11,6 +12,7 @@ export default function AdminSupport() {
   const [active, setActive] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
+  const [confirm, setConfirm] = useState(null);
   const endRef = useRef(null);
 
   const load = () => { base44.entities.SupportTicket.list(200).then((t) => { setTickets(t); if (!active && t.length) setActive(t[0]); }).catch(() => {}); };
@@ -33,6 +35,19 @@ export default function AdminSupport() {
 
   const setStatus = async (s) => { await base44.entities.SupportTicket.update(active.id, { status: s }); load(); };
 
+  const closeAndClear = async () => {
+    await base44.entities.SupportMessage.deleteMany({ ticket_id: active.id }).catch(() => {});
+    await base44.entities.SupportTicket.update(active.id, { status: 'closed' }).catch(() => {});
+    await base44.entities.Notification.create({ user_id: active.user_id, title: 'Destek talebiniz kapatıldı', body: active.subject, type: 'support' }).catch(() => {});
+    setMessages([]); setConfirm(null); load(); toast({ title: 'Sohbet kapatıldı, mesajlar silindi' });
+  };
+
+  const delTicket = async () => {
+    await base44.entities.SupportMessage.deleteMany({ ticket_id: active.id }).catch(() => {});
+    await base44.entities.SupportTicket.delete(active.id).catch(() => {});
+    setConfirm(null); setActive(null); setMessages([]); load(); toast({ title: 'Talep silindi' });
+  };
+
   return (
     <div>
       <h1 className="text-2xl font-extrabold mb-4">Destek Mesajları</h1>
@@ -47,11 +62,15 @@ export default function AdminSupport() {
         </div>
         <div className="flex flex-col bg-card border border-border rounded-xl overflow-hidden">
           {active ? <>
-            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
               <div><p className="font-semibold">{active.subject}</p><p className="text-xs text-muted-foreground">{active.user_name} · {active.category}</p></div>
-              <select value={active.status} onChange={(e) => setStatus(e.target.value)} className="bg-secondary rounded-lg px-2 py-1 text-xs">
-                <option value="new">Yeni</option><option value="reviewing">İnceleniyor</option><option value="answered">Cevaplandı</option><option value="closed">Kapatıldı</option>
-              </select>
+              <div className="flex items-center gap-2">
+                <select value={active.status} onChange={(e) => setStatus(e.target.value)} className="bg-secondary rounded-lg px-2 py-1 text-xs">
+                  <option value="new">Yeni</option><option value="reviewing">İnceleniyor</option><option value="answered">Cevaplandı</option><option value="closed">Kapatıldı</option>
+                </select>
+                <button onClick={() => setConfirm('close')} className="p-2 rounded-lg bg-amber-500/20 text-amber-400" title="Kapat ve mesajları sil"><XCircle className="w-4 h-4" /></button>
+                <button onClick={() => setConfirm('delete')} className="p-2 rounded-lg bg-red-500/20 text-red-400" title="Sil"><Trash2 className="w-4 h-4" /></button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {messages.map((m) => <div key={m.id} className={`flex ${m.sender === 'admin' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${m.sender === 'admin' ? 'bg-accent text-accent-foreground' : 'bg-secondary'}`}>{m.text}</div></div>)}
@@ -64,6 +83,10 @@ export default function AdminSupport() {
           </> : <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Talep seçin.</div>}
         </div>
       </div>
+      <ConfirmDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}
+        title={confirm === 'close' ? 'Sohbeti kapat ve mesajları sil?' : 'Talebi tamamen sil?'}
+        description={confirm === 'close' ? 'Kullanıcının mesajları silinecek ve talep kapatılacak.' : 'Talep ve tüm mesajlar kalıcı olarak silinecek.'}
+        onConfirm={confirm === 'close' ? closeAndClear : delTicket} />
     </div>
   );
 }

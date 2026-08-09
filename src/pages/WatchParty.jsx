@@ -149,13 +149,13 @@ export default function WatchParty() {
 
       <div className="grid lg:grid-cols-[1fr_340px] gap-4">
         <div>
-          <div ref={playerWrapRef} className="relative rounded-xl overflow-hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-            {src ? <VideoPlayer src={src} title={room.movie_title} syncState={syncState} isOwner={isOwner} onPlayPause={onPlayPause} onTimeUpdate={onTimeUpdate} onSeek={onSeek} fullscreenRef={playerWrapRef} /> :
-              <div className="aspect-video bg-card border border-border rounded-xl flex items-center justify-center text-muted-foreground">Video kaynağı yok</div>}
-
-            {/* Mobil / fullscreen sohbet paneli (wrapper içinde, fullscreen'de görünür) */}
+          <div ref={playerWrapRef} className="relative flex rounded-xl overflow-hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+            <div className={chatOpen ? 'flex-1 min-w-0' : 'w-full'}>
+              {src ? <VideoPlayer src={src} title={room.movie_title} syncState={syncState} isOwner={isOwner} onPlayPause={onPlayPause} onTimeUpdate={onTimeUpdate} onSeek={onSeek} fullscreenRef={playerWrapRef} /> :
+                <div className="aspect-video bg-card border border-border rounded-xl flex items-center justify-center text-muted-foreground">Video kaynağı yok</div>}
+            </div>
             {chatOpen && (
-              <div className="lg:hidden absolute inset-y-0 right-0 w-[80%] max-w-xs z-30 shadow-2xl border-l border-border rounded-l-xl overflow-hidden">
+              <div className="lg:hidden w-[38%] min-w-[220px] max-w-xs border-l border-border bg-card">
                 <ChatOverlay roomId={id} chatEnabled={chatEnabled} isOwner={isOwner} onClose={() => setChatOpen(false)} />
               </div>
             )}

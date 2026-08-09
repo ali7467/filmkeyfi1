@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useCurrentUser } from '@/lib/useCurrentUser';
-import { LayoutDashboard, UserCheck, Users, Film, Tv, FolderTree, DoorOpen, MessageSquare, LifeBuoy, Package, CreditCard, RefreshCw, Bell, BarChart3, Settings, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, UserCheck, Users, Film, FolderTree, DoorOpen, MessageSquare, LifeBuoy, Package, CreditCard, RefreshCw, Bell, BarChart3, Settings, LogOut, Menu, X } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 
 const nav = [
@@ -10,7 +10,6 @@ const nav = [
   { to: '/admin/kullanicilar', label: 'Kullanıcılar', icon: Users },
   { to: '/admin/filmler', label: 'Filmler', icon: Film },
   { to: '/admin/film-ekle', label: 'Film Yükle', icon: Film },
-  { to: '/admin/diziler', label: 'Diziler', icon: Tv },
   { to: '/admin/kategoriler', label: 'Kategoriler', icon: FolderTree },
   { to: '/admin/odalar', label: 'Odalar', icon: DoorOpen },
   { to: '/admin/oda-mesajlari', label: 'Oda Mesajları', icon: MessageSquare },

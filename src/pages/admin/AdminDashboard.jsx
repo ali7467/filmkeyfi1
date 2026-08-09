@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { Users, Film, Tv, DoorOpen, LifeBuoy, CreditCard, TrendingUp, Activity } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { Users, Film, DoorOpen, LifeBuoy, CreditCard, TrendingUp, Activity, Trash2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 
 export default function AdminDashboard() {
+  const { toast } = useToast();
   const [stats, setStats] = useState({});
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const clearLogs = async () => { await base44.entities.AdminLog.deleteMany({}); setLogs([]); toast({ title: 'Tüm aktiviteler silindi' }); };
 
   useEffect(() => {
     (async () => {
@@ -41,7 +45,6 @@ export default function AdminDashboard() {
     { label: 'Süresi Biten', value: stats.expiredMembers, icon: Activity, color: 'text-amber-400' },
     { label: 'Yenileme Bekleyen', value: stats.renewals, icon: Activity, color: 'text-purple-400' },
     { label: 'Toplam Film', value: stats.movies, icon: Film, color: 'text-red-400' },
-    { label: 'Toplam Dizi', value: stats.series, icon: Tv, color: 'text-pink-400' },
     { label: 'Aktif Odalar', value: stats.activeRooms, icon: DoorOpen, color: 'text-cyan-400' },
     { label: 'Açık Destek', value: stats.openTickets, icon: LifeBuoy, color: 'text-orange-400' },
     { label: 'Gelir (₺)', value: stats.revenue, icon: CreditCard, color: 'text-emerald-400' },
@@ -93,7 +96,10 @@ export default function AdminDashboard() {
       </div>
 
       <div className="bg-card border border-border rounded-xl p-4">
-        <h3 className="font-semibold mb-3">Son Aktiviteler</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold">Son Aktiviteler</h3>
+          {logs.length > 0 && <button onClick={clearLogs} className="inline-flex items-center gap-1 text-xs text-destructive hover:bg-destructive/10 px-2 py-1 rounded-lg"><Trash2 className="w-3.5 h-3.5" /> Tümünü Sil</button>}
+        </div>
         {logs.length === 0 ? <p className="text-sm text-muted-foreground">Henüz aktivite kaydı yok.</p> :
           <div className="space-y-2">{logs.map((l) => <div key={l.id} className="text-sm flex justify-between border-b border-border last:border-0 py-1.5"><span>{l.action} {l.target && <span className="text-muted-foreground">· {l.target}</span>}</span><span className="text-xs text-muted-foreground">{new Date(l.created_date).toLocaleString('tr-TR')}</span></div>)}</div>}
       </div>

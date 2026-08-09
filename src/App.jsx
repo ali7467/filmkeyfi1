@@ -31,6 +31,7 @@ import AdminPackages from '@/pages/admin/AdminPackages';
 import AdminRenewals from '@/pages/admin/AdminRenewals';
 import AdminNotifications from '@/pages/admin/AdminNotifications';
 import AdminCategories from '@/pages/admin/AdminCategories';
+import OpenRooms from '@/pages/OpenRooms';
 import AdminReports from '@/pages/admin/AdminReports';
 import { Navigate } from 'react-router-dom';
 import Login from '@/pages/Login';
@@ -72,7 +73,7 @@ const AuthenticatedApp = () => {
         <Route element={<AppLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/filmler" element={<Browse type="movie" title="Filmler" />} />
-          <Route path="/diziler" element={<Browse type="series" title="Diziler" />} />
+          <Route path="/acik-odalar" element={<OpenRooms />} />
           <Route path="/kategoriler" element={<Browse type="movie" title="Kategoriler" />} />
           <Route path="/izle/:id" element={<MovieDetail />} />
           <Route path="/video/:id" element={<Watch />} />
@@ -90,7 +91,6 @@ const AuthenticatedApp = () => {
           <Route path="kullanicilar" element={<AdminUsers />} />
           <Route path="filmler" element={<AdminMovies />} />
           <Route path="film-ekle" element={<AdminMovies />} />
-          <Route path="diziler" element={<AdminMovies seriesOnly />} />
           <Route path="kategoriler" element={<AdminCategories />} />
           <Route path="odalar" element={<AdminRooms />} />
           <Route path="oda-mesajlari" element={<AdminRoomMessages />} />
