@@ -3,7 +3,8 @@ import { base44 } from '@/api/base44Client';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-import { Check, X, Ban, Trash2, KeyRound, Eye } from 'lucide-react';
+
+const btn = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap';
 
 export default function AdminUsers({ pendingOnly = false }) {
   const { user: admin } = useCurrentUser();
@@ -29,19 +30,38 @@ export default function AdminUsers({ pendingOnly = false }) {
     await base44.asServiceRole.entities.User.update(u.id, { membership_status: 'active', membership_start: start.toISOString(), membership_end: end.toISOString() });
     await notify(u.id, 'Üyeliğiniz onaylandı', 'Premium içeriklere erişebilirsiniz.');
     await log('Üyelik onaylandı', u.email);
-    toast({ title: 'Onaylandı' }); load();
+    toast({ title: 'Kullanıcı onaylandı.' }); load();
   };
   const reject = async (u) => {
-    await base44.asServiceRole.entities.User.update(u.id, { membership_status: 'blocked' });
+    await base44.asServiceRole.entities.User.update(u.id, { membership_status: 'rejected' });
     await notify(u.id, 'Üyelik talebi reddedildi', 'Lütfen destek ile iletişime geçin.');
     await log('Üyelik reddedildi', u.email);
-    toast({ title: 'Reddedildi' }); load();
+    toast({ title: 'Kullanıcı reddedildi.' }); load();
   };
-  const block = async (u) => { await base44.asServiceRole.entities.User.update(u.id, { membership_status: 'blocked' }); await log('Kullanıcı engellendi', u.email); toast({ title: 'Engellendi' }); load(); };
-  const activate = async (u) => { await base44.asServiceRole.entities.User.update(u.id, { membership_status: 'active' }); await log('Kullanıcı aktif edildi', u.email); toast({ title: 'Aktif edildi' }); load(); };
-  const resetPass = async (u) => { await notify(u.id, 'Şifre sıfırlama', 'Şifrenizi sıfırlamak için giriş sayfasındaki "Şifremi Unuttum" bağlantısını kullanın.'); await log('Şifre sıfırlama isteği', u.email); toast({ title: 'Sıfırlama bağlantısı gönderildi' }); };
-  const del = async (u) => { await base44.asServiceRole.entities.User.delete(u.id); await log('Kullanıcı silindi', u.email); toast({ title: 'Silindi' }); setConfirm(null); load(); };
-  const extend = async (u) => { const end = new Date(u.membership_end || new Date()); end.setDate(end.getDate() + 30); await base44.asServiceRole.entities.User.update(u.id, { membership_end: end.toISOString() }); await notify(u.id, 'Üyeliğiniz uzatıldı', '30 gün eklendi.'); await log('Üyelik uzatıldı', u.email); toast({ title: '30 gün uzatıldı' }); load(); };
+  const toggleActive = async (u) => {
+    const next = u.membership_status === 'active' ? 'blocked' : 'active';
+    await base44.asServiceRole.entities.User.update(u.id, { membership_status: next });
+    await log(next === 'active' ? 'Kullanıcı aktif edildi' : 'Kullanıcı pasif edildi', u.email);
+    toast({ title: next === 'active' ? 'Kullanıcı aktif edildi' : 'Kullanıcı pasif edildi' }); load();
+  };
+  const extend = async (u) => {
+    const base = u.membership_end && new Date(u.membership_end) > new Date() ? new Date(u.membership_end) : new Date();
+    base.setDate(base.getDate() + 30);
+    await base44.asServiceRole.entities.User.update(u.id, { membership_end: base.toISOString(), membership_status: 'active' });
+    await notify(u.id, 'Üyeliğiniz uzatıldı', '30 gün eklendi.');
+    await log('Üyelik uzatıldı', u.email);
+    toast({ title: '30 gün uzatıldı' }); load();
+  };
+  const resetPass = async (u) => {
+    try { await base44.auth.resetPasswordRequest(u.email); } catch {}
+    await log('Şifre sıfırlama isteği', u.email);
+    toast({ title: 'Şifre sıfırlama bağlantısı gönderildi' });
+  };
+  const del = async (u) => {
+    await base44.asServiceRole.entities.User.delete(u.id);
+    await log('Kullanıcı silindi', u.email);
+    toast({ title: 'Kullanıcı silindi.' }); setConfirm(null); load();
+  };
 
   if (loading) return <p className="text-muted-foreground">Yükleniyor...</p>;
 
@@ -50,31 +70,30 @@ export default function AdminUsers({ pendingOnly = false }) {
       <h1 className="text-2xl font-extrabold mb-4">{pendingOnly ? 'Kayıt Kontrol' : 'Kullanıcı Yönetimi'}</h1>
       {users.length === 0 ? <p className="text-muted-foreground text-sm">{pendingOnly ? 'Onay bekleyen kayıt yok.' : 'Kullanıcı yok.'}</p> :
         <div className="space-y-2">
-          {users.map((u) => (
-            <div key={u.id} className="bg-card border border-border rounded-xl p-3 flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center font-bold shrink-0">{(u.username || u.full_name || '?')[0]}</div>
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{u.username || u.full_name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+          {users.map((u) => {
+            const isActive = u.membership_status === 'active';
+            return (
+              <div key={u.id} className="bg-card border border-border rounded-xl p-3 flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center font-bold text-sm shrink-0">{(u.username || u.full_name || '?')[0]}</div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{u.username || u.full_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                  </div>
+                </div>
+                <span className={`text-xs px-2 py-1 rounded ${isActive ? 'bg-green-500/20 text-green-400' : u.membership_status === 'pending' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>{isActive ? 'Aktif' : u.membership_status === 'pending' ? 'Beklemede' : 'Pasif'}</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {!pendingOnly && <button onClick={() => setDetail(u)} className={`${btn} bg-secondary hover:bg-secondary/70`}>GÖRÜNTÜLE</button>}
+                  {!isActive && <button onClick={() => approve(u)} className={`${btn} bg-green-500/20 text-green-400 hover:bg-green-500/30`}>ONAYLA</button>}
+                  {!pendingOnly && <button onClick={() => toggleActive(u)} className={`${btn} ${isActive ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'}`}>{isActive ? 'PASİF YAP' : 'AKTİF YAP'}</button>}
+                  {pendingOnly && <button onClick={() => reject(u)} className={`${btn} bg-red-500/20 text-red-400 hover:bg-red-500/30`}>REDDET</button>}
+                  {!pendingOnly && <button onClick={() => extend(u)} className={`${btn} bg-blue-500/20 text-blue-400 hover:bg-blue-500/30`}>+30 GÜN</button>}
+                  {!pendingOnly && <button onClick={() => resetPass(u)} className={`${btn} bg-purple-500/20 text-purple-400 hover:bg-purple-500/30`}>ŞİFRE SIFIRLA</button>}
+                  <button onClick={() => setConfirm(u)} className={`${btn} bg-red-500/20 text-red-400 hover:bg-red-500/30`}>SİL</button>
                 </div>
               </div>
-              <span className={`text-xs px-2 py-1 rounded ${u.membership_status === 'active' ? 'bg-green-500/20 text-green-400' : u.membership_status === 'pending' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>{u.membership_status}</span>
-              <span className="text-xs text-muted-foreground">{u.membership_end ? new Date(u.membership_end).toLocaleDateString('tr-TR') : '-'}</span>
-              <div className="flex gap-1 flex-wrap">
-                {pendingOnly ? <>
-                  <button onClick={() => approve(u)} className="p-2 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30" title="Onayla"><Check className="w-4 h-4" /></button>
-                  <button onClick={() => reject(u)} className="p-2 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30" title="Reddet"><X className="w-4 h-4" /></button>
-                </> : <>
-                  <button onClick={() => setDetail(u)} className="p-2 rounded bg-secondary hover:bg-secondary/70" title="Detay"><Eye className="w-4 h-4" /></button>
-                  {u.membership_status === 'active' ? <button onClick={() => block(u)} className="p-2 rounded bg-amber-500/20 text-amber-400" title="Engelle"><Ban className="w-4 h-4" /></button> : <button onClick={() => activate(u)} className="p-2 rounded bg-green-500/20 text-green-400" title="Aktif et"><Check className="w-4 h-4" /></button>}
-                  <button onClick={() => extend(u)} className="px-2 rounded bg-blue-500/20 text-blue-400 text-xs font-bold" title="Üyelik uzat">+30</button>
-                  <button onClick={() => resetPass(u)} className="p-2 rounded bg-purple-500/20 text-purple-400" title="Şifre sıfırla"><KeyRound className="w-4 h-4" /></button>
-                </>}
-                <button onClick={() => setConfirm(u)} className="p-2 rounded bg-red-500/20 text-red-400" title="Sil"><Trash2 className="w-4 h-4" /></button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>}
 
       {detail && (
@@ -82,12 +101,14 @@ export default function AdminUsers({ pendingOnly = false }) {
           <div className="bg-card border border-border rounded-xl p-5 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-bold text-lg mb-3">{detail.username || detail.full_name}</h3>
             <div className="space-y-1.5 text-sm">
+              <p><span className="text-muted-foreground">Kullanıcı adı:</span> {detail.username || detail.full_name || '-'}</p>
               <p><span className="text-muted-foreground">E-posta:</span> {detail.email}</p>
-              <p><span className="text-muted-foreground">Telefon:</span> {detail.phone || '-'}</p>
-              <p><span className="text-muted-foreground">Rol:</span> {detail.role}</p>
-              <p><span className="text-muted-foreground">Durum:</span> {detail.membership_status}</p>
-              <p><span className="text-muted-foreground">Başlangıç:</span> {detail.membership_start ? new Date(detail.membership_start).toLocaleDateString('tr-TR') : '-'}</p>
-              <p><span className="text-muted-foreground">Bitiş:</span> {detail.membership_end ? new Date(detail.membership_end).toLocaleDateString('tr-TR') : '-'}</p>
+              <p><span className="text-muted-foreground">Kayıt tarihi:</span> {detail.created_date ? new Date(detail.created_date).toLocaleDateString('tr-TR') : '-'}</p>
+              <p><span className="text-muted-foreground">Üyelik durumu:</span> {detail.membership_status || '-'}</p>
+              <p><span className="text-muted-foreground">Aktif/Pasif:</span> {detail.membership_status === 'active' ? 'Aktif' : 'Pasif'}</p>
+              <p><span className="text-muted-foreground">Üyelik başlangıcı:</span> {detail.membership_start ? new Date(detail.membership_start).toLocaleDateString('tr-TR') : '-'}</p>
+              <p><span className="text-muted-foreground">Üyelik bitişi:</span> {detail.membership_end ? new Date(detail.membership_end).toLocaleDateString('tr-TR') : '-'}</p>
+              <p><span className="text-muted-foreground">Kalan gün:</span> {detail.membership_end ? Math.max(0, Math.ceil((new Date(detail.membership_end) - new Date()) / 86400000)) : '-'}</p>
             </div>
             <button onClick={() => setDetail(null)} className="mt-4 bg-secondary px-4 py-2 rounded-lg text-sm w-full">Kapat</button>
           </div>

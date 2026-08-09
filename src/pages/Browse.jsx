@@ -6,26 +6,31 @@ import { Film } from 'lucide-react';
 
 export default function Browse({ type, title }) {
   const [movies, setMovies] = useState([]);
+  const [cats, setCats] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [genre, setGenre] = useState('Tümü');
+  const [activeCat, setActiveCat] = useState('all');
 
   useEffect(() => {
-    base44.entities.Movie.filter({ published: true, type }, '-views', 300)
-      .then((r) => { setMovies(r); setLoading(false); })
-      .catch(() => setLoading(false));
+    Promise.all([
+      base44.entities.Movie.filter({ published: true, type }, '-views', 300).catch(() => []),
+      base44.entities.Category.list(200).catch(() => []),
+    ]).then(([m, c]) => { setMovies(m); setCats(c); setLoading(false); });
   }, [type]);
 
-  const genres = ['Tümü', ...new Set(movies.flatMap((m) => m.genres || []))];
-  const filtered = genre === 'Tümü' ? movies : movies.filter((m) => m.genres?.includes(genre));
+  const catName = (id) => cats.find((c) => c.id === id)?.name;
+  const filtered = activeCat === 'all' ? movies : movies.filter((m) => m.category_id === activeCat || m.category === catName(activeCat));
 
   return (
     <div className="px-4 sm:px-6 py-6">
       <h1 className="text-2xl sm:text-3xl font-extrabold mb-4">{title}</h1>
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3 mb-4">
-        {genres.map((g) => (
-          <button key={g} onClick={() => setGenre(g)} className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${genre === g ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>{g}</button>
-        ))}
-      </div>
+      {cats.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3 mb-4">
+          <button onClick={() => setActiveCat('all')} className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap ${activeCat === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>Tümü</button>
+          {cats.map((c) => (
+            <button key={c.id} onClick={() => setActiveCat(c.id)} className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap ${activeCat === c.id ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>{c.name}</button>
+          ))}
+        </div>
+      )}
       {loading ? <SkeletonRow /> :
        filtered.length === 0 ? <EmptyState icon={Film} title="İçerik bulunamadı" description="Bu kategoride henüz içerik yok." /> :
        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">

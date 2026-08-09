@@ -37,6 +37,9 @@
     "category": {
       "type": "string"
     },
+    "category_id": {
+      "type": "string"
+    },
     "genres": {
       "type": "array",
       "items": {

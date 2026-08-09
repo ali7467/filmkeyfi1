@@ -6,7 +6,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Image } from '@/components/ui/image';
 import { Trash2, Edit, Upload, Eye, EyeOff, Plus } from 'lucide-react';
 
-const empty = { title: '', description: '', type: 'movie', poster: '', backdrop: '', trailer: '', video_url: '', hls_url: '', external_url: '', category: '', genres: '', cast: '', director: '', year: 2024, imdb: 0, duration: 0, language: 'Türkçe', subtitle: 'Altyazılı', quality: 'HD', age_rating: '+13', featured: false, popular: false, published: true };
+const empty = { title: '', description: '', type: 'movie', poster: '', backdrop: '', trailer: '', video_url: '', hls_url: '', external_url: '', category: '', category_id: '', genres: '', cast: '', director: '', year: 2024, imdb: 0, duration: 0, language: 'Türkçe', subtitle: 'Altyazılı', quality: 'HD', age_rating: '+13', featured: false, popular: false, published: true };
 
 export default function AdminMovies({ seriesOnly = false }) {
   const { user: admin } = useCurrentUser();
@@ -16,22 +16,26 @@ export default function AdminMovies({ seriesOnly = false }) {
   const [confirm, setConfirm] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(empty);
+  const [cats, setCats] = useState([]);
 
   const load = () => {
     base44.entities.Movie.filter(seriesOnly ? { type: 'series' } : {}, '-created_date', 500).then((r) => { setItems(r); setLoading(false); }).catch(() => setLoading(false));
   };
   useEffect(load, [seriesOnly]);
+  useEffect(() => { base44.entities.Category.list(200).then(setCats).catch(() => {}); }, []);
 
   const log = async (action, target) => { await base44.entities.AdminLog.create({ admin_id: admin?.id, admin_name: admin?.username, action, target }).catch(() => {}); };
 
   const openNew = () => { setForm({ ...empty, type: seriesOnly ? 'series' : 'movie' }); setEditing('new'); };
-  const openEdit = (m) => { setForm({ ...m, genres: (m.genres || []).join(', '), cast: (m.cast || []).join(', ') }); setEditing(m.id); };
+  const openEdit = (m) => { setForm({ ...m, category_id: m.category_id || '', genres: (m.genres || []).join(', '), cast: (m.cast || []).join(', ') }); setEditing(m.id); };
 
   const save = async (e) => {
     e.preventDefault();
-    const data = { ...form, year: Number(form.year), imdb: Number(form.imdb), duration: Number(form.duration), genres: form.genres.split(',').map((s) => s.trim()).filter(Boolean), cast: form.cast.split(',').map((s) => s.trim()).filter(Boolean) };
+    const cat = cats.find((c) => c.id === form.category_id);
+    const data = { ...form, category: cat?.name || form.category || '', year: Number(form.year), imdb: Number(form.imdb), duration: Number(form.duration), genres: form.genres.split(',').map((s) => s.trim()).filter(Boolean), cast: form.cast.split(',').map((s) => s.trim()).filter(Boolean) };
     try {
-      if (editing === 'new') { await base44.entities.Movie.create(data); await log('Film eklendi', data.title); }
+      if (!form.category_id) { toast({ title: 'Lütfen bir kategori seçin', variant: 'destructive' }); return; }
+    if (editing === 'new') { await base44.entities.Movie.create(data); await log('Film eklendi', data.title); }
       else { await base44.entities.Movie.update(editing, data); await log('Film güncellendi', data.title); }
       toast({ title: 'Kaydedildi' }); setEditing(null); load();
     } catch (err) { toast({ title: 'Hata', description: err.message, variant: 'destructive' }); }
@@ -50,7 +54,10 @@ export default function AdminMovies({ seriesOnly = false }) {
       <form onSubmit={save} className="space-y-3">
         <div className="grid sm:grid-cols-2 gap-3">
           <input className={field} placeholder="Başlık" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
-          <input className={field} placeholder="Kategori" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+          <select className={field} value={form.category_id || ''} onChange={(e) => setForm({ ...form, category_id: e.target.value })} required>
+            <option value="">Kategori seçin...</option>
+            {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
         </div>
         <textarea className={field} placeholder="Açıklama" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         <div className="grid sm:grid-cols-2 gap-3">

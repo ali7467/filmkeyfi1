@@ -1,8 +1,13 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
 import BottomNav from '@/components/layout/BottomNav';
 
 export default function AppLayout() {
+  const { pathname } = useLocation();
+  const isRoom = pathname.startsWith('/oda/');
+  if (isRoom) {
+    return <div className="min-h-screen bg-background"><Outlet /></div>;
+  }
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
