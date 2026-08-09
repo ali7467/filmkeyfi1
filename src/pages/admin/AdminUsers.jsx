@@ -18,7 +18,7 @@ export default function AdminUsers({ pendingOnly = false }) {
     base44.entities.User.list(500).then((u) => {
       setUsers(pendingOnly ? u.filter((x) => x.membership_status === 'pending') : u);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((e) => { setLoading(false); toast({ title: 'Liste yüklenemedi', description: e.message, variant: 'destructive' }); });
   };
   useEffect(load, []);
 
@@ -26,41 +26,53 @@ export default function AdminUsers({ pendingOnly = false }) {
   const notify = async (uid, title, body) => { await base44.entities.Notification.create({ user_id: uid, title, body, type: 'info' }).catch(() => {}); };
 
   const approve = async (u) => {
-    const start = new Date(); const end = new Date(); end.setDate(end.getDate() + 30);
-    await base44.asServiceRole.entities.User.update(u.id, { membership_status: 'active', membership_start: start.toISOString(), membership_end: end.toISOString() });
-    await notify(u.id, 'Üyeliğiniz onaylandı', 'Premium içeriklere erişebilirsiniz.');
-    await log('Üyelik onaylandı', u.email);
-    toast({ title: 'Kullanıcı onaylandı.' }); load();
+    try {
+      const start = new Date(); const end = new Date(); end.setDate(end.getDate() + 30);
+      await base44.entities.User.update(u.id, { membership_status: 'active', membership_start: start.toISOString(), membership_end: end.toISOString() });
+      await notify(u.id, 'Üyeliğiniz onaylandı', 'Premium içeriklere erişebilirsiniz.');
+      await log('Üyelik onaylandı', u.email);
+      toast({ title: 'Kullanıcı onaylandı.' }); load();
+    } catch (e) { toast({ title: 'Onaylanamadı', description: e.message, variant: 'destructive' }); }
   };
   const reject = async (u) => {
-    await base44.asServiceRole.entities.User.update(u.id, { membership_status: 'rejected' });
-    await notify(u.id, 'Üyelik talebi reddedildi', 'Lütfen destek ile iletişime geçin.');
-    await log('Üyelik reddedildi', u.email);
-    toast({ title: 'Kullanıcı reddedildi.' }); load();
+    try {
+      await base44.entities.User.update(u.id, { membership_status: 'rejected' });
+      await notify(u.id, 'Üyelik talebi reddedildi', 'Lütfen destek ile iletişime geçin.');
+      await log('Üyelik reddedildi', u.email);
+      toast({ title: 'Kullanıcı reddedildi.' }); load();
+    } catch (e) { toast({ title: 'Reddedilemedi', description: e.message, variant: 'destructive' }); }
   };
   const toggleActive = async (u) => {
-    const next = u.membership_status === 'active' ? 'blocked' : 'active';
-    await base44.asServiceRole.entities.User.update(u.id, { membership_status: next });
-    await log(next === 'active' ? 'Kullanıcı aktif edildi' : 'Kullanıcı pasif edildi', u.email);
-    toast({ title: next === 'active' ? 'Kullanıcı aktif edildi' : 'Kullanıcı pasif edildi' }); load();
+    try {
+      const next = u.membership_status === 'active' ? 'blocked' : 'active';
+      await base44.entities.User.update(u.id, { membership_status: next });
+      await log(next === 'active' ? 'Kullanıcı aktif edildi' : 'Kullanıcı pasif edildi', u.email);
+      toast({ title: next === 'active' ? 'Kullanıcı aktif edildi' : 'Kullanıcı pasif edildi' }); load();
+    } catch (e) { toast({ title: 'İşlem başarısız', description: e.message, variant: 'destructive' }); }
   };
   const extend = async (u) => {
-    const base = u.membership_end && new Date(u.membership_end) > new Date() ? new Date(u.membership_end) : new Date();
-    base.setDate(base.getDate() + 30);
-    await base44.asServiceRole.entities.User.update(u.id, { membership_end: base.toISOString(), membership_status: 'active' });
-    await notify(u.id, 'Üyeliğiniz uzatıldı', '30 gün eklendi.');
-    await log('Üyelik uzatıldı', u.email);
-    toast({ title: '30 gün uzatıldı' }); load();
+    try {
+      const base = u.membership_end && new Date(u.membership_end) > new Date() ? new Date(u.membership_end) : new Date();
+      base.setDate(base.getDate() + 30);
+      await base44.entities.User.update(u.id, { membership_end: base.toISOString(), membership_status: 'active' });
+      await notify(u.id, 'Üyeliğiniz uzatıldı', '30 gün eklendi.');
+      await log('Üyelik uzatıldı', u.email);
+      toast({ title: '30 gün uzatıldı' }); load();
+    } catch (e) { toast({ title: 'Uzatılamadı', description: e.message, variant: 'destructive' }); }
   };
   const resetPass = async (u) => {
-    try { await base44.auth.resetPasswordRequest(u.email); } catch {}
-    await log('Şifre sıfırlama isteği', u.email);
-    toast({ title: 'Şifre sıfırlama bağlantısı gönderildi' });
+    try {
+      await base44.auth.resetPasswordRequest(u.email);
+      await log('Şifre sıfırlama isteği', u.email);
+      toast({ title: 'Şifre sıfırlama bağlantısı gönderildi' });
+    } catch (e) { toast({ title: 'Sıfırlama başarısız', description: e.message, variant: 'destructive' }); }
   };
   const del = async (u) => {
-    await base44.asServiceRole.entities.User.delete(u.id);
-    await log('Kullanıcı silindi', u.email);
-    toast({ title: 'Kullanıcı silindi.' }); setConfirm(null); load();
+    try {
+      await base44.entities.User.delete(u.id);
+      await log('Kullanıcı silindi', u.email);
+      toast({ title: 'Kullanıcı silindi.' }); setConfirm(null); load();
+    } catch (e) { toast({ title: 'Silinemedi', description: e.message, variant: 'destructive' }); }
   };
 
   if (loading) return <p className="text-muted-foreground">Yükleniyor...</p>;
