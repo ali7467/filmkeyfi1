@@ -4,7 +4,7 @@ import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForwar
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const QUALITIES = ['Otomatik', 'HD', 'Full HD', '4K'];
 
-export default function VideoPlayer({ src, title, onTimeUpdate, onPlayPause, onSeek, syncState, isOwner, subtitles }) {
+export default function VideoPlayer({ src, title, onTimeUpdate, onPlayPause, onSeek, syncState, isOwner, subtitles, fullscreenRef }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const [playing, setPlaying] = useState(false);
@@ -84,7 +84,8 @@ export default function VideoPlayer({ src, title, onTimeUpdate, onPlayPause, onS
   const handlePause = () => { setPlaying(false); if (isOwner && onPlayPause) onPlayPause(false); };
 
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) { containerRef.current?.requestFullscreen?.(); } else { document.exitFullscreen?.(); }
+    const el = fullscreenRef?.current || containerRef.current;
+    if (!document.fullscreenElement) { el?.requestFullscreen?.(); } else { document.exitFullscreen?.(); }
   };
   useEffect(() => {
     const h = () => setFullscreen(!!document.fullscreenElement);

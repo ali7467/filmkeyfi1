@@ -3,9 +3,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import VideoPlayer from '@/components/player/VideoPlayer';
 import ChatOverlay from '@/components/player/ChatOverlay';
+import { useVoiceChat } from '@/hooks/useVoiceChat';
 import { useCurrentUser, membershipActive } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
-import { Users, MessageSquare, Mic, MicOff, X, Crown, LogOut, Volume2, VolumeX, Copy } from 'lucide-react';
+import { Users, MessageSquare, Mic, MicOff, X, Crown, Copy, AlertCircle } from 'lucide-react';
 
 export default function WatchParty() {
   const { id } = useParams();
@@ -15,13 +16,14 @@ export default function WatchParty() {
   const [room, setRoom] = useState(null);
   const [movie, setMovie] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [chatOpen, setChatOpen] = useState(true);
-  const [voiceOn, setVoiceOn] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [syncState, setSyncState] = useState({ is_playing: false, current_time: 0, last_sync: null });
   const joinedRef = useRef(false);
   const lastUpdateRef = useRef(0);
+  const playerWrapRef = useRef(null);
+  const touchStart = useRef({ x: 0, y: 0 });
+
+  const voice = useVoiceChat({ roomId: id, user, participants: room?.participants, voiceEnabled: !!room?.voice_enabled });
 
   // load room
   useEffect(() => {
@@ -92,12 +94,10 @@ export default function WatchParty() {
   };
 
   const toggleVoice = async () => {
-    if (!isOwner) { setVoiceOn(!voiceOn); return; }
+    if (!isOwner) { toast({ title: 'Sesli sohbeti sadece oda sahibi açabilir', variant: 'destructive' }); return; }
     const ne = !room.voice_enabled;
     await base44.entities.Room.update(id, { voice_enabled: ne }).catch(() => {});
   };
-
-  const toggleMute = () => setMuted(!muted);
 
   const removeUser = async (uid) => {
     if (!isOwner) return;
@@ -112,6 +112,17 @@ export default function WatchParty() {
   };
 
   const copyLink = () => { navigator.clipboard.writeText(window.location.href); toast({ title: 'Oda linki kopyalandı' }); };
+
+  const onTouchStart = (e) => { const t = e.touches[0]; touchStart.current = { x: t.clientX, y: t.clientY }; };
+  const onTouchEnd = (e) => {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.current.x;
+    const dy = t.clientY - touchStart.current.y;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      if (dx < 0) setChatOpen(true);
+      else setChatOpen(false);
+    }
+  };
 
   if (ul || loading) return <div className="h-[60vh] flex items-center justify-center"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   if (!room) return <p className="p-6">Oda bulunamadı.</p>;
@@ -131,15 +142,25 @@ export default function WatchParty() {
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1 text-sm bg-secondary px-3 py-1.5 rounded-lg"><Users className="w-4 h-4" /> {room.participants?.length || 0}/{room.max_users}</span>
           <button onClick={toggleChat} className={`p-2 rounded-lg ${chatEnabled ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`} title="Sohbet"><MessageSquare className="w-5 h-5" /></button>
-          <button onClick={toggleVoice} className={`p-2 rounded-lg ${voiceOn || room.voice_enabled ? 'bg-accent text-accent-foreground' : 'bg-secondary text-muted-foreground'}`} title="Sesli sohbet"><Mic className="w-5 h-5" /></button>
+          <button onClick={toggleVoice} className={`p-2 rounded-lg ${room.voice_enabled ? 'bg-accent text-accent-foreground' : 'bg-secondary text-muted-foreground'}`} title="Sesli sohbet"><Mic className="w-5 h-5" /></button>
           {isOwner && <button onClick={closeRoom} className="p-2 rounded-lg bg-destructive/20 text-destructive" title="Odayı kapat"><X className="w-5 h-5" /></button>}
         </div>
       </div>
 
       <div className="grid lg:grid-cols-[1fr_340px] gap-4">
         <div>
-          {src ? <VideoPlayer src={src} title={room.movie_title} syncState={syncState} isOwner={isOwner} onPlayPause={onPlayPause} onTimeUpdate={onTimeUpdate} onSeek={onSeek} /> :
-            <div className="aspect-video bg-card border border-border rounded-xl flex items-center justify-center text-muted-foreground">Video kaynağı yok</div>}
+          <div ref={playerWrapRef} className="relative rounded-xl overflow-hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+            {src ? <VideoPlayer src={src} title={room.movie_title} syncState={syncState} isOwner={isOwner} onPlayPause={onPlayPause} onTimeUpdate={onTimeUpdate} onSeek={onSeek} fullscreenRef={playerWrapRef} /> :
+              <div className="aspect-video bg-card border border-border rounded-xl flex items-center justify-center text-muted-foreground">Video kaynağı yok</div>}
+
+            {/* Mobil / fullscreen sohbet paneli (wrapper içinde, fullscreen'de görünür) */}
+            {chatOpen && (
+              <div className="lg:hidden absolute inset-y-0 right-0 w-[80%] max-w-xs z-30 shadow-2xl border-l border-border rounded-l-xl overflow-hidden">
+                <ChatOverlay roomId={id} chatEnabled={chatEnabled} isOwner={isOwner} onClose={() => setChatOpen(false)} />
+              </div>
+            )}
+          </div>
+
           {!isOwner && <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1"><Crown className="w-3 h-3 text-amber-400" /> Senkronizasyon oda sahibi tarafından kontrol edilir.</p>}
 
           {/* Participants */}
@@ -147,42 +168,40 @@ export default function WatchParty() {
             <h3 className="font-semibold mb-2 flex items-center gap-2"><Users className="w-4 h-4" /> Katılımcılar ({room.participants?.length || 0})</h3>
             <div className="flex flex-wrap gap-2">
               {room.participants?.map((p) => (
-                <div key={p.user_id} className={`flex items-center gap-2 bg-card border rounded-lg pl-1.5 pr-3 py-1.5 ${speaking && p.user_id === user.id ? 'border-primary' : 'border-border'}`}>
+                <div key={p.user_id} className={`flex items-center gap-2 bg-card border rounded-lg pl-1.5 pr-3 py-1.5 ${voice.speaking && p.user_id === user.id ? 'border-primary' : 'border-border'}`}>
                   <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold">{(p.name || '?')[0]}</div>
                   <span className="text-sm">{p.name}{p.user_id === room.owner_id && <Crown className="w-3 h-3 text-amber-400 inline ml-1" />}</span>
-                  {p.user_id === user.id && (muted ? <MicOff className="w-3.5 h-3.5 text-red-400" /> : <Mic className="w-3.5 h-3.5 text-green-400" />)}
+                  {p.user_id === user.id && (voice.muted ? <MicOff className="w-3.5 h-3.5 text-red-400" /> : <Mic className="w-3.5 h-3.5 text-green-400" />)}
                   {isOwner && p.user_id !== user.id && <button onClick={() => removeUser(p.user_id)} className="text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Voice controls (UI) */}
-          {(voiceOn || room.voice_enabled) && (
+          {/* Sesli sohbet kontrolleri */}
+          {room.voice_enabled && (
             <div className="mt-4 p-4 rounded-xl bg-card border border-border">
               <h3 className="font-semibold mb-3 flex items-center gap-2"><Mic className="w-4 h-4 text-accent" /> Sesli Sohbet</h3>
-              <div className="flex items-center gap-3">
-                <button onClick={toggleMute} className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg ${muted ? 'bg-destructive/20 text-destructive' : 'bg-green-500/20 text-green-400'}`}>
-                  {muted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />} {muted ? 'Susturuldu' : 'Konuşuyor'}
+              {voice.error && <p className="text-sm text-destructive flex items-center gap-1 mb-3"><AlertCircle className="w-4 h-4" /> {voice.error}</p>}
+              <div className="flex items-center gap-3 flex-wrap">
+                <button onClick={voice.toggleMute} className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg ${voice.muted ? 'bg-destructive/20 text-destructive' : 'bg-green-500/20 text-green-400'}`}>
+                  {voice.muted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />} {voice.muted ? 'Susturuldu' : 'Konuşuyor'}
                 </button>
-                <p className="text-xs text-muted-foreground">Gerçek WebRTC sesli sohbet için sinyal sunucusu gerekir. Bu arayüz mikrofon kontrolünü simgeler.</p>
+                <span className="text-xs text-muted-foreground">{voice.active ? 'Bağlı' : 'Bağlanıyor...'}</span>
+                {voice.speaking && <span className="text-xs text-green-400 font-medium">🔊 Konuşuyor</span>}
               </div>
+              <p className="text-xs text-muted-foreground mt-2">Sola kaydır: sohbet aç · Sağa kaydır: sohbet kapat</p>
             </div>
           )}
         </div>
 
-        {/* Chat panel (desktop) */}
+        {/* Masaüstü sohbet paneli */}
         <div className="hidden lg:block h-[60vh] rounded-xl overflow-hidden border border-border">
           <ChatOverlay roomId={id} chatEnabled={chatEnabled} isOwner={isOwner} onClose={() => setChatOpen(false)} />
         </div>
       </div>
 
-      {/* Mobile chat overlay */}
-      {chatOpen && (
-        <div className="lg:hidden fixed inset-y-16 right-0 w-[85%] max-w-sm z-40 shadow-2xl border-l border-border rounded-l-xl overflow-hidden">
-          <ChatOverlay roomId={id} chatEnabled={chatEnabled} isOwner={isOwner} onClose={() => setChatOpen(false)} />
-        </div>
-      )}
+      {/* Mobil sohbet açma butonu */}
       {!chatOpen && (
         <button onClick={() => setChatOpen(true)} className="lg:hidden fixed bottom-20 right-4 z-40 w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg">
           <MessageSquare className="w-5 h-5" />

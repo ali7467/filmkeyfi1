@@ -1,0 +1,43 @@
+{
+  "name": "VoiceSignal",
+  "type": "object",
+  "properties": {
+    "room_id": {
+      "type": "string"
+    },
+    "from_id": {
+      "type": "string"
+    },
+    "to_id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "offer",
+        "answer",
+        "ice"
+      ]
+    },
+    "data": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "room_id",
+    "from_id",
+    "to_id",
+    "type",
+    "data"
+  ],
+  "rls": {
+    "read": {},
+    "create": {},
+    "update": {
+      "data.from_id": "{{user.id}}"
+    },
+    "delete": {
+      "data.from_id": "{{user.id}}"
+    }
+  }
+}
