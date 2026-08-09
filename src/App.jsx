@@ -6,7 +6,37 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
+import ProtectedRoute from '@/components/ProtectedRoute';
 // Add page imports here
+import AppLayout from '@/components/layout/AppLayout';
+import Home from '@/pages/Home';
+import Browse from '@/pages/Browse';
+import MovieDetail from '@/pages/MovieDetail';
+import Watch from '@/pages/Watch';
+import WatchParty from '@/pages/WatchParty';
+import CreateRoom from '@/pages/CreateRoom';
+import Profile from '@/pages/Profile';
+import MyList from '@/pages/MyList';
+import Search from '@/pages/Search';
+import Support from '@/pages/Support';
+import Notifications from '@/pages/Notifications';
+import AdminLayout from '@/pages/admin/AdminLayout';
+import AdminDashboard from '@/pages/admin/AdminDashboard';
+import AdminUsers from '@/pages/admin/AdminUsers';
+import AdminMovies from '@/pages/admin/AdminMovies';
+import AdminRooms from '@/pages/admin/AdminRooms';
+import AdminRoomMessages from '@/pages/admin/AdminRoomMessages';
+import AdminSupport from '@/pages/admin/AdminSupport';
+import AdminPackages from '@/pages/admin/AdminPackages';
+import AdminRenewals from '@/pages/admin/AdminRenewals';
+import AdminNotifications from '@/pages/admin/AdminNotifications';
+import AdminCategories from '@/pages/admin/AdminCategories';
+import AdminReports from '@/pages/admin/AdminReports';
+import { Navigate } from 'react-router-dom';
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -34,7 +64,45 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
-      {/* Add your page Route elements here */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/filmler" element={<Browse type="movie" title="Filmler" />} />
+          <Route path="/diziler" element={<Browse type="series" title="Diziler" />} />
+          <Route path="/kategoriler" element={<Browse type="movie" title="Kategoriler" />} />
+          <Route path="/izle/:id" element={<MovieDetail />} />
+          <Route path="/video/:id" element={<Watch />} />
+          <Route path="/oda/:id" element={<WatchParty />} />
+          <Route path="/oda-kur" element={<CreateRoom />} />
+          <Route path="/listem" element={<MyList />} />
+          <Route path="/ara" element={<Search />} />
+          <Route path="/destek" element={<Support />} />
+          <Route path="/bildirimler" element={<Notifications />} />
+          <Route path="/profil" element={<Profile />} />
+        </Route>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="kayit" element={<AdminUsers pendingOnly />} />
+          <Route path="kullanicilar" element={<AdminUsers />} />
+          <Route path="filmler" element={<AdminMovies />} />
+          <Route path="film-ekle" element={<AdminMovies />} />
+          <Route path="diziler" element={<AdminMovies seriesOnly />} />
+          <Route path="kategoriler" element={<AdminCategories />} />
+          <Route path="odalar" element={<AdminRooms />} />
+          <Route path="oda-mesajlari" element={<AdminRoomMessages />} />
+          <Route path="destek" element={<AdminSupport />} />
+          <Route path="paketler" element={<AdminPackages />} />
+          <Route path="odemeler" element={<AdminReports />} />
+          <Route path="yenilemeler" element={<AdminRenewals />} />
+          <Route path="bildirimler" element={<AdminNotifications />} />
+          <Route path="raporlar" element={<AdminReports />} />
+          <Route path="ayalar" element={<AdminDashboard />} />
+        </Route>
+      </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

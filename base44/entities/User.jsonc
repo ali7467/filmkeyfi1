@@ -1,0 +1,40 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "username": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "avatar": {
+      "type": "string"
+    },
+    "membership_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "active",
+        "expired",
+        "blocked"
+      ],
+      "default": "pending"
+    },
+    "package_id": {
+      "type": "string"
+    },
+    "membership_start": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "membership_end": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_login": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

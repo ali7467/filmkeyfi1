@@ -1,0 +1,101 @@
+import { useState, useEffect, useRef } from 'react';
+import { Send, X, Smile, Trash2, MessageSquareOff } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+import { useCurrentUser } from '@/lib/useCurrentUser';
+import { useToast } from '@/components/ui/use-toast';
+
+const EMOJIS = ['😀', '😂', '😍', '🔥', '👍', '👏', '😱', '😢', '🎬', '🍿', '❤️', '🎉'];
+
+export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
+  const { user } = useCurrentUser();
+  const { toast } = useToast();
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState('');
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const endRef = useRef(null);
+
+  const load = () => {
+    base44.entities.RoomMessage.filter({ room_id: roomId }, 'created_date', 200)
+      .then((r) => { setMessages(r); setLoading(false); endRef.current?.scrollIntoView({ behavior: 'smooth' }); })
+      .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+    const unsub = base44.entities.RoomMessage.subscribe((ev) => {
+      if (ev.type === 'create') {
+        setMessages((prev) => prev.some((m) => m.id === ev.data.id) ? prev : [...prev, ev.data]);
+        setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+      }
+    });
+    return unsub;
+  }, [roomId]);
+
+  const send = (e) => {
+    e?.preventDefault();
+    if (!text.trim() || !user) return;
+    const msg = { room_id: roomId, user_id: user.id, user_name: user.username || user.full_name || 'Kullanıcı', user_avatar: user.avatar || '', text: text.trim() };
+    base44.entities.RoomMessage.create(msg).catch((err) => toast({ title: 'Mesaj gönderilemedi', description: err.message, variant: 'destructive' }));
+    setText(''); setShowEmoji(false);
+  };
+
+  const del = async (id) => {
+    try { await base44.entities.RoomMessage.delete(id); setMessages((p) => p.filter((m) => m.id !== id)); }
+    catch (err) { toast({ title: 'Silinemedi', variant: 'destructive' }); }
+  };
+
+  if (!chatEnabled) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-center p-6 text-muted-foreground">
+        <MessageSquareOff className="w-10 h-10 mb-3" />
+        <p className="font-semibold">Sohbet kapalı</p>
+        <p className="text-sm">Oda sahibi sohbeti kapatmış.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col bg-card/95 backdrop-blur">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <h3 className="font-bold flex items-center gap-2">💬 Sohbet <span className="text-xs text-muted-foreground font-normal">({messages.length})</span></h3>
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary"><X className="w-5 h-5" /></button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {loading ? <p className="text-center text-sm text-muted-foreground py-8">Yükleniyor...</p> :
+         messages.length === 0 ? <p className="text-center text-sm text-muted-foreground py-8">Henüz mesaj yok. İlk mesajı sen at! 🍿</p> :
+         messages.map((m) => (
+           <div key={m.id} className={`flex gap-2 group ${m.type === 'system' ? 'justify-center' : ''}`}>
+             {m.type === 'system' ? (
+               <span className="text-xs text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">{m.text}</span>
+             ) : (
+               <>
+                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent shrink-0 flex items-center justify-center text-xs font-bold">{(m.user_name || '?')[0]}</div>
+                 <div className="min-w-0 flex-1">
+                   <div className="flex items-center gap-2">
+                     <span className="text-xs font-semibold truncate">{m.user_name}{user?.id === m.user_id && ' (Sen)'}</span>
+                   </div>
+                   <p className="text-sm break-words bg-secondary/50 rounded-lg px-2.5 py-1.5 inline-block">{m.text}</p>
+                 </div>
+                 {user?.id === m.user_id && (
+                   <button onClick={() => del(m.id)} className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                 )}
+               </>
+             )}
+           </div>
+         ))}
+        <div ref={endRef} />
+      </div>
+      {showEmoji && (
+        <div className="px-3 py-2 border-t border-border flex flex-wrap gap-1">
+          {EMOJIS.map((e) => <button key={e} onClick={() => setText((t) => t + e)} className="text-xl hover:bg-secondary rounded p-1">{e}</button>)}
+        </div>
+      )}
+      <form onSubmit={send} className="p-3 border-t border-border flex items-center gap-2">
+        <button type="button" onClick={() => setShowEmoji(!showEmoji)} className="p-2 rounded-lg hover:bg-secondary"><Smile className="w-5 h-5" /></button>
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Mesaj yazın..." className="flex-1 bg-secondary/60 rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
+        <button type="submit" disabled={!text.trim()} className="p-2.5 rounded-full bg-primary text-primary-foreground disabled:opacity-50"><Send className="w-4 h-4" /></button>
+      </form>
+    </div>
+  );
+}
