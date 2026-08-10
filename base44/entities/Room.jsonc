@@ -83,7 +83,18 @@
   "rls": {
     "read": {},
     "create": {},
-    "update": {},
+    "update": {
+      "$or": [
+        {
+          "data.owner_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
     "delete": {
       "$or": [
         {
