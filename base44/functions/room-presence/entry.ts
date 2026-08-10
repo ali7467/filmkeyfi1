@@ -1,5 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 
+async function sha256Hex(salt, pw) {
+  const data = new TextEncoder().encode(salt + pw);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
@@ -27,7 +33,8 @@ export default async function(req) {
       const participants = room.participants || [];
       const already = participants.some((p) => p.user_id === user.id);
       if (!already && room.password && room.owner_id !== user.id) {
-        if (!password || room.password !== password) {
+        const [salt, hash] = room.password.split(':');
+        if (!password || !salt || hash !== await sha256Hex(salt, password)) {
           await base44.asServiceRole.entities.SecurityLog.create({
             action: 'room_password_failed', user_id: user.id, user_email: user.email,
             detail: room_id, level: 'warning'

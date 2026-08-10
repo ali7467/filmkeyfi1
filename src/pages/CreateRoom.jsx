@@ -21,16 +21,14 @@ export default function CreateRoom() {
     if (!form.name || !form.movie_id) { toast({ title: 'Oda adı ve içerik seçin', variant: 'destructive' }); return; }
     const movie = movies.find((m) => m.id === form.movie_id);
     try {
-      const room = await base44.entities.Room.create({
-        ...form, max_users: Number(form.max_users),
-        movie_title: movie?.title || '', owner_id: user.id, owner_name: user.username || user.full_name,
-        is_playing: false, current_time: 0, status: 'active',
-        participants: [{ user_id: user.id, name: user.username || user.full_name, avatar: user.avatar || '', muted: false, speaking: false }]
+      const res = await base44.functions.invoke('create-room', {
+        name: form.name, movie_id: form.movie_id, movie_title: movie?.title || '',
+        password: form.password, max_users: Number(form.max_users),
+        chat_enabled: form.chat_enabled, voice_enabled: form.voice_enabled
       });
-      await base44.entities.RoomMessage.create({ room_id: room.id, user_id: user.id, user_name: user.username || user.full_name, text: `${user.username || user.full_name} odaya katıldı.`, type: 'system' });
       toast({ title: 'Oda oluşturuldu' });
-      navigate(`/oda/${room.id}`);
-    } catch (err) { toast({ title: 'Hata', description: err.message, variant: 'destructive' }); }
+      navigate(`/oda/${res.data.id}`);
+    } catch (err) { toast({ title: 'Hata', description: err.response?.data?.error || err.message, variant: 'destructive' }); }
   };
 
   const field = "w-full bg-secondary/60 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring border border-border";
