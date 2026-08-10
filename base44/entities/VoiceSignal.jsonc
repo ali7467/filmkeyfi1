@@ -31,8 +31,19 @@
     "data"
   ],
   "rls": {
-    "read": {},
-    "create": {},
+    "read": {
+      "$or": [
+        {
+          "data.from_id": "{{user.id}}"
+        },
+        {
+          "data.to_id": "{{user.id}}"
+        }
+      ]
+    },
+    "create": {
+      "data.from_id": "{{user.id}}"
+    },
     "update": {
       "data.from_id": "{{user.id}}"
     },
