@@ -35,8 +35,7 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
   const send = (e) => {
     e?.preventDefault();
     if (!text.trim() || !user) return;
-    const msg = { room_id: roomId, user_id: user.id, user_name: user.username || user.full_name || 'Kullanıcı', user_avatar: user.avatar || '', text: text.trim() };
-    base44.entities.RoomMessage.create(msg).catch((err) => toast({ title: 'Mesaj gönderilemedi', description: err.message, variant: 'destructive' }));
+    base44.functions.invoke('send-room-message', { room_id: roomId, text: text.trim() }).catch((err) => toast({ title: 'Mesaj gönderilemedi', description: err.response?.data?.error || err.message, variant: 'destructive' }));
     setText(''); setShowEmoji(false);
   };
 

@@ -33,6 +33,7 @@ import AdminNotifications from '@/pages/admin/AdminNotifications';
 import AdminCategories from '@/pages/admin/AdminCategories';
 import OpenRooms from '@/pages/OpenRooms';
 import AdminReports from '@/pages/admin/AdminReports';
+import AdminSecurity from '@/pages/admin/AdminSecurity';
 import { Navigate } from 'react-router-dom';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
@@ -100,6 +101,7 @@ const AuthenticatedApp = () => {
           <Route path="yenilemeler" element={<AdminRenewals />} />
           <Route path="bildirimler" element={<AdminNotifications />} />
           <Route path="raporlar" element={<AdminReports />} />
+          <Route path="guvenlik" element={<AdminSecurity />} />
           <Route path="ayalar" element={<AdminDashboard />} />
         </Route>
       </Route>

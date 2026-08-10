@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useCurrentUser } from '@/lib/useCurrentUser';
-import { LayoutDashboard, UserCheck, Users, Film, FolderTree, DoorOpen, MessageSquare, LifeBuoy, Package, CreditCard, RefreshCw, Bell, BarChart3, Settings, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, UserCheck, Users, Film, FolderTree, DoorOpen, MessageSquare, LifeBuoy, Package, CreditCard, RefreshCw, Bell, BarChart3, Settings, LogOut, Menu, X, ShieldAlert, KeyRound } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 
 const nav = [
@@ -18,6 +18,7 @@ const nav = [
   { to: '/admin/odemeler', label: 'Ödemeler', icon: CreditCard },
   { to: '/admin/yenilemeler', label: 'Yenileme Talepleri', icon: RefreshCw },
   { to: '/admin/bildirimler', label: 'Bildirimler', icon: Bell },
+  { to: '/admin/guvenlik', label: 'Güvenlik', icon: ShieldAlert },
   { to: '/admin/raporlar', label: 'Raporlar', icon: BarChart3 },
   { to: '/admin/ayalar', label: 'Ayarlar', icon: Settings },
 ];
@@ -26,6 +27,10 @@ export default function AdminLayout() {
   const { user, loading } = useCurrentUser();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [twofaOk, setTwofaOk] = useState(() => sessionStorage.getItem('admin2fa') === 'ok');
+  const [twofaCode, setTwofaCode] = useState('');
+  const [twofaErr, setTwofaErr] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     if (!loading && (!user || user.role !== 'admin')) navigate('/');
@@ -34,7 +39,32 @@ export default function AdminLayout() {
   if (loading) return <div className="h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   if (!user || user.role !== 'admin') return null;
 
-  const logout = () => base44.auth.logout('/login');
+  const verify2fa = async () => {
+    setVerifying(true); setTwofaErr('');
+    try {
+      const res = await base44.functions.invoke('admin-2fa', { action: 'verify', code: twofaCode });
+      if (res.data.verified) { sessionStorage.setItem('admin2fa', 'ok'); setTwofaOk(true); }
+      else setTwofaErr('Hatalı kod');
+    } catch (e) { setTwofaErr(e.response?.data?.error || 'Hatalı kod'); }
+    setVerifying(false);
+  };
+
+  if (user.twofa_enabled && !twofaOk) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm">
+          <div className="flex items-center gap-2 mb-3"><KeyRound className="w-5 h-5 text-primary" /><h1 className="text-lg font-bold">Admin 2FA Doğrulama</h1></div>
+          <p className="text-sm text-muted-foreground mb-4">Admin paneline erişim için authenticator kodunuzu girin.</p>
+          <input value={twofaCode} onChange={(e) => setTwofaCode(e.target.value)} maxLength={6} placeholder="6 haneli kod" className="w-full bg-secondary/60 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring mb-2" />
+          {twofaErr && <p className="text-xs text-destructive mb-2">{twofaErr}</p>}
+          <button onClick={verify2fa} disabled={verifying || twofaCode.length !== 6} className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50">{verifying ? 'Doğrulanıyor...' : 'Doğrula'}</button>
+          <button onClick={() => base44.auth.logout('/login')} className="w-full mt-2 text-sm text-muted-foreground py-2">Çıkış</button>
+        </div>
+      </div>
+    );
+  }
+
+  const logout = () => { sessionStorage.removeItem('admin2fa'); base44.auth.logout('/login'); };
 
   return (
     <div className="min-h-screen bg-background flex">

@@ -18,6 +18,8 @@ export default function WatchParty() {
   const [loading, setLoading] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
   const [showViewers, setShowViewers] = useState(false);
+  const [needPassword, setNeedPassword] = useState(false);
+  const [pwInput, setPwInput] = useState('');
   const [syncState, setSyncState] = useState({ is_playing: false, current_time: 0, last_sync: null });
   const joinedRef = useRef(false);
   const lastUpdateRef = useRef(0);
@@ -37,15 +39,22 @@ export default function WatchParty() {
 
   useEffect(() => {
     if (!user || !room || joinedRef.current) return;
-    joinedRef.current = true;
-    const me = { user_id: user.id, name: user.username || user.full_name, avatar: user.avatar || '', muted: false, speaking: false };
-    const exists = room.participants?.some((p) => p.user_id === user.id);
-    if (!exists) {
-      const participants = [...(room.participants || []), me];
-      base44.entities.Room.update(id, { participants }).catch(() => {});
-      base44.entities.RoomMessage.create({ room_id: id, user_id: user.id, user_name: me.name, text: `${me.name} odaya katıldı.`, type: 'system' }).catch(() => {});
+    if (room.password && room.owner_id !== user.id && !room.participants?.some((p) => p.user_id === user.id)) {
+      setNeedPassword(true);
+      return;
     }
+    joinedRef.current = true;
+    base44.functions.invoke('room-presence', { action: 'join', room_id: id }).catch((e) => toast({ title: 'Katılım başarısız', description: e.response?.data?.error || e.message, variant: 'destructive' }));
   }, [user?.id, room?.id]);
+
+  const submitPassword = async () => {
+    try {
+      await base44.functions.invoke('room-presence', { action: 'join', room_id: id, password: pwInput });
+      joinedRef.current = true; setNeedPassword(false); setPwInput('');
+    } catch (e) {
+      toast({ title: 'Hatalı şifre', description: e.response?.data?.error || e.message, variant: 'destructive' });
+    }
+  };
 
   useEffect(() => {
     const unsub = base44.entities.Room.subscribe((ev) => {
@@ -59,15 +68,8 @@ export default function WatchParty() {
 
   useEffect(() => {
     return () => {
-      if (!user) return;
-      base44.entities.Room.get(id).then((r) => {
-        if (!r) return;
-        const participants = (r.participants || []).filter((p) => p.user_id !== user.id);
-        let owner_id = r.owner_id;
-        if (r.owner_id === user.id && participants.length > 0) owner_id = participants[0].user_id;
-        base44.entities.Room.update(id, { participants, owner_id, owner_name: participants[0]?.name || r.owner_name }).catch(() => {});
-        base44.entities.RoomMessage.create({ room_id: id, user_id: user.id, user_name: user.username || user.full_name, text: `${user.username || user.full_name} odadan ayrıldı.`, type: 'system' }).catch(() => {});
-      }).catch(() => {});
+      if (!user || !joinedRef.current) return;
+      base44.functions.invoke('room-presence', { action: 'leave', room_id: id }).catch(() => {});
     };
   }, []);
 
@@ -112,6 +114,22 @@ export default function WatchParty() {
   if (room.status === 'closed') return <div className="p-10 text-center"><p className="text-xl font-bold mb-2">Oda kapatıldı</p><Link to="/" className="text-primary">Ana sayfaya dön</Link></div>;
   if (!membershipActive(user)) return <div className="p-10 text-center"><p className="mb-4">Watch Party için aktif üyelik gerekli.</p><Link to="/profil" className="text-primary">Üyeliğim</Link></div>;
 
+  if (needPassword) {
+    return (
+      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-6">
+        <div className="bg-card border border-border rounded-xl p-5 w-full max-w-xs">
+          <h2 className="font-bold mb-1">Şifreli Oda</h2>
+          <p className="text-sm text-muted-foreground mb-3">Bu oda şifre korumalı. Katılmak için şifreyi girin.</p>
+          <input value={pwInput} onChange={(e) => setPwInput(e.target.value)} type="password" placeholder="Oda şifresi" className="w-full bg-secondary/60 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring mb-3" />
+          <div className="flex gap-2">
+            <button onClick={() => navigate(-1)} className="flex-1 bg-secondary py-2 rounded-lg text-sm">Geri</button>
+            <button onClick={submitPassword} className="flex-1 bg-primary text-primary-foreground py-2 rounded-lg text-sm font-semibold">Katıl</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const src = movie?.video_url || movie?.hls_url || movie?.external_url || '';
   const chatEnabled = room.chat_enabled;
 
@@ -128,7 +146,7 @@ export default function WatchParty() {
       {/* Video + sohbet alanı */}
       <div ref={playerWrapRef} className="flex-1 flex min-h-0 relative" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <div className={`flex items-center justify-center bg-black ${chatOpen ? 'flex-1 min-w-0' : 'flex-1 min-w-0'}`}>
-          {src ? <VideoPlayer src={src} title={room.movie_title} syncState={syncState} isOwner={isOwner} onPlayPause={onPlayPause} onTimeUpdate={onTimeUpdate} onSeek={onSeek} fullscreenRef={playerWrapRef} /> :
+          {src ? <VideoPlayer src={src} title={room.movie_title} syncState={syncState} isOwner={isOwner} onPlayPause={onPlayPause} onTimeUpdate={onTimeUpdate} onSeek={onSeek} fullscreenRef={playerWrapRef} watermark={user} /> :
             <div className="text-muted-foreground text-sm p-6 text-center">Video kaynağı yok</div>}
         </div>
 

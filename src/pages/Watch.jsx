@@ -15,14 +15,24 @@ export default function Watch() {
   const { toast } = useToast();
   const [movie, setMovie] = useState(null);
   const [episode, setEpisode] = useState(null);
+  const [src, setSrc] = useState('');
+  const [videoError, setVideoError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     base44.entities.Movie.get(id).then(async (m) => {
       setMovie(m);
+      let ep = null;
       if (epId) {
         const eps = await base44.entities.Episode.filter({ series_id: id }, 'season', 100).catch(() => []);
-        setEpisode(eps.find((e) => e.id === epId) || eps[0] || null);
+        ep = eps.find((e) => e.id === epId) || eps[0] || null;
+        setEpisode(ep);
+      }
+      try {
+        const res = await base44.functions.invoke('authorize-video', { movie_id: id, episode_id: ep?.id });
+        setSrc(res.data.url);
+      } catch (e) {
+        setVideoError(e.response?.data?.error || 'Video yüklenemedi');
       }
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -49,8 +59,6 @@ export default function Watch() {
 
   if (!movie) return <p className="p-6">İçerik bulunamadı.</p>;
 
-  const src = episode?.video_url || episode?.hls_url || movie.video_url || movie.hls_url || movie.external_url || '';
-
   const createRoom = async () => {
     try {
       const room = await base44.entities.Room.create({
@@ -74,7 +82,11 @@ export default function Watch() {
       </div>
       <h1 className="text-xl sm:text-2xl font-bold mb-1">{movie.title}{episode ? ` · ${episode.title}` : ''}</h1>
       <p className="text-sm text-muted-foreground mb-4">{movie.year} · {movie.quality} · {movie.language || 'TR'}</p>
-      {src ? <VideoPlayer src={src} title={movie.title} /> :
+      {videoError ? <div className="aspect-video bg-card border border-border rounded-xl flex flex-col items-center justify-center text-center p-6">
+          <Lock className="w-10 h-10 text-muted-foreground mb-3" />
+          <p className="font-semibold mb-1">{videoError}</p>
+        </div> :
+       src ? <VideoPlayer src={src} title={movie.title} watermark={user} /> :
         <div className="aspect-video bg-card border border-border rounded-xl flex flex-col items-center justify-center text-center p-6">
           <Lock className="w-10 h-10 text-muted-foreground mb-3" />
           <p className="font-semibold mb-1">Video kaynağı bulunamadı</p>
