@@ -56,6 +56,11 @@ export default async function(req) {
       return Response.json({ ok: true });
     } else {
       const participants = (room.participants || []).filter((p) => p.user_id !== user.id);
+      if (participants.length === 0) {
+        await base44.asServiceRole.entities.RoomMessage.deleteMany({ room_id });
+        await base44.asServiceRole.entities.Room.delete(room_id);
+        return Response.json({ ok: true, deleted: true });
+      }
       let owner_id = room.owner_id;
       let owner_name = room.owner_name;
       if (room.owner_id === user.id && participants.length > 0) {

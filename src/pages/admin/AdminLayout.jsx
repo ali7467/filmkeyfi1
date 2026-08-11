@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { LayoutDashboard, UserCheck, Users, Film, FolderTree, DoorOpen, MessageSquare, LifeBuoy, Package, CreditCard, RefreshCw, Bell, BarChart3, Settings, LogOut, Menu, X, ShieldAlert, KeyRound } from 'lucide-react';
@@ -27,6 +27,7 @@ export default function AdminLayout() {
   const { user, loading } = useCurrentUser();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const touchX = useRef(null);
   const [twofaOk, setTwofaOk] = useState(() => sessionStorage.getItem('admin2fa') === 'ok');
   const [twofaCode, setTwofaCode] = useState('');
   const [twofaErr, setTwofaErr] = useState('');
@@ -88,7 +89,9 @@ export default function AdminLayout() {
       </aside>
       {open && <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setOpen(false)} />}
       <div className="flex-1 min-w-0">
-        <header className="lg:hidden sticky top-0 z-20 glass border-b border-border h-14 flex items-center px-4">
+        <header className="lg:hidden sticky top-0 z-20 glass border-b border-border h-14 flex items-center px-4"
+          onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => { const dx = e.changedTouches[0].clientX - (touchX.current ?? 0); if (Math.abs(dx) > 55) setOpen((v) => !v); }}>
           <button onClick={() => setOpen(true)}><Menu className="w-6 h-6" /></button>
           <span className="ml-3 font-bold">Admin Panel</span>
         </header>

@@ -179,8 +179,8 @@ export default function WatchParty() {
             <div className="space-y-1.5">
               {room.participants?.map((p) => (
                 <div key={p.user_id} className="flex items-center gap-2 text-sm">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold shrink-0">{(p.name || '?')[0]}</div>
-                  <span className="flex-1 truncate">{p.name}{p.user_id === room.owner_id && <Crown className="w-3 h-3 text-amber-400 inline ml-1" />}</span>
+                  <Link to={`/kullanici/${p.user_id}`} className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold shrink-0">{(p.name || '?')[0]}</Link>
+                  <Link to={`/kullanici/${p.user_id}`} className="flex-1 truncate hover:underline">{p.name}{p.user_id === room.owner_id && <Crown className="w-3 h-3 text-amber-400 inline ml-1" />}</Link>
                   {isOwner && p.user_id !== user.id && <button onClick={() => removeUser(p.user_id)} className="text-xs text-destructive">Çıkar</button>}
                 </div>
               ))}

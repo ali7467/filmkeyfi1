@@ -21,6 +21,7 @@ export default function Profile() {
   useEffect(() => {
     if (!user) return;
     setForm({ username: user.username || '', full_name: user.full_name || '', phone: user.phone || '', avatar: user.avatar || '' });
+    if (!user.member_id) base44.functions.invoke('ensure-member-id').then(() => reload()).catch(() => {});
     if (user.package_id) base44.entities.Package.get(user.package_id).then(setPkg).catch(() => {});
     base44.entities.WatchHistory.filter({ user_id: user.id }, '-created_date', 20).then(async (h) => {
       setHistory(h);
@@ -128,6 +129,7 @@ export default function Profile() {
             <>
               <Row label="Kullanıcı Adı" value={user.username || '-'} />
               <Row label="Ad Soyad" value={user.full_name || '-'} />
+              <Row label="Üye No" value={user.member_id || '-'} />
               <Row label="E-posta" value={user.email} />
               <Row label="Telefon" value={user.phone || '-'} />
               <Row label="Paket" value={pkg?.name || '-'} />

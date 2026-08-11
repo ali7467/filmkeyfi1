@@ -11,6 +11,9 @@
     "avatar": {
       "type": "string"
     },
+    "member_id": {
+      "type": "string"
+    },
     "membership_status": {
       "type": "string",
       "enum": [

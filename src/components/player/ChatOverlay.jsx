@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Send, X, Smile, Trash2, MessageSquareOff } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useCurrentUser } from '@/lib/useCurrentUser';
@@ -78,10 +79,10 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
                <span className="text-xs text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">{m.text}</span>
              ) : (
                <>
-                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent shrink-0 flex items-center justify-center text-xs font-bold">{(m.user_name || '?')[0]}</div>
+                 <Link to={`/kullanici/${m.user_id}`} className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent shrink-0 flex items-center justify-center text-xs font-bold">{(m.user_name || '?')[0]}</Link>
                  <div className="min-w-0 flex-1">
                    <div className="flex items-center gap-2">
-                     <span className="text-xs font-semibold truncate">{m.user_name}{user?.id === m.user_id && ' (Sen)'}</span>
+                     <Link to={`/kullanici/${m.user_id}`} className="text-xs font-semibold truncate hover:underline">{m.user_name}{user?.id === m.user_id && ' (Sen)'}</Link>
                    </div>
                    <p className="text-sm break-words bg-secondary/50 rounded-lg px-2.5 py-1.5 inline-block">{m.text}</p>
                  </div>

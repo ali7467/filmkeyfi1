@@ -34,6 +34,7 @@ import AdminCategories from '@/pages/admin/AdminCategories';
 import OpenRooms from '@/pages/OpenRooms';
 import AdminReports from '@/pages/admin/AdminReports';
 import AdminSecurity from '@/pages/admin/AdminSecurity';
+import UserProfile from '@/pages/UserProfile';
 import { Navigate } from 'react-router-dom';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
@@ -85,6 +86,7 @@ const AuthenticatedApp = () => {
           <Route path="/destek" element={<Support />} />
           <Route path="/bildirimler" element={<Notifications />} />
           <Route path="/profil" element={<Profile />} />
+          <Route path="/kullanici/:id" element={<UserProfile />} />
         </Route>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />

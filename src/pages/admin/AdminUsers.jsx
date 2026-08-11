@@ -13,6 +13,17 @@ export default function AdminUsers({ pendingOnly = false }) {
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [idQuery, setIdQuery] = useState('');
+  const [nameQuery, setNameQuery] = useState('');
+
+  const filtered = users.filter((u) => {
+    if (idQuery.trim() && u.member_id !== idQuery.trim()) return false;
+    if (nameQuery.trim()) {
+      const q = nameQuery.trim().toLowerCase();
+      if (!(u.username || '').toLowerCase().includes(q) && !(u.full_name || '').toLowerCase().includes(q) && !(u.email || '').toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
 
   const load = () => {
     base44.entities.User.list(500).then((u) => {
@@ -80,9 +91,16 @@ export default function AdminUsers({ pendingOnly = false }) {
   return (
     <div>
       <h1 className="text-2xl font-extrabold mb-4">{pendingOnly ? 'Kayıt Kontrol' : 'Kullanıcı Yönetimi'}</h1>
+      {!pendingOnly && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <input value={idQuery} onChange={(e) => setIdQuery(e.target.value)} placeholder="Üye No ile ara (8 haneli)" className="bg-card border border-border rounded-lg px-3 py-2 text-sm w-44 outline-none focus:ring-2 focus:ring-ring" />
+          <input value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} placeholder="İsim / kullanıcı adı / e-posta ile ara" className="bg-card border border-border rounded-lg px-3 py-2 text-sm flex-1 min-w-[200px] outline-none focus:ring-2 focus:ring-ring" />
+        </div>
+      )}
       {users.length === 0 ? <p className="text-muted-foreground text-sm">{pendingOnly ? 'Onay bekleyen kayıt yok.' : 'Kullanıcı yok.'}</p> :
+        filtered.length === 0 ? <p className="text-muted-foreground text-sm">Eşleşen kullanıcı bulunamadı.</p> :
         <div className="space-y-2">
-          {users.map((u) => {
+          {filtered.map((u) => {
             const isActive = u.membership_status === 'active';
             return (
               <div key={u.id} className="bg-card border border-border rounded-xl p-3 flex flex-wrap items-center gap-2">
@@ -90,14 +108,14 @@ export default function AdminUsers({ pendingOnly = false }) {
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center font-bold text-sm shrink-0">{(u.username || u.full_name || '?')[0]}</div>
                   <div className="min-w-0">
                     <p className="font-medium text-sm truncate">{u.username || u.full_name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                    <p className="text-xs text-muted-foreground truncate">{u.email}{u.member_id ? ` · #${u.member_id}` : ''}</p>
                   </div>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded ${isActive ? 'bg-green-500/20 text-green-400' : u.membership_status === 'pending' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>{isActive ? 'Aktif' : u.membership_status === 'pending' ? 'Beklemede' : 'Pasif'}</span>
+                <span className={`text-xs px-2 py-1 rounded ${isActive ? 'bg-green-500/20 text-green-400' : u.membership_status === 'pending' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>{isActive ? 'Aktif' : u.membership_status === 'pending' ? 'Beklemede' : 'Askıya Alındı'}</span>
                 <div className="flex flex-wrap gap-1.5">
                   {!pendingOnly && <button onClick={() => setDetail(u)} className={`${btn} bg-secondary hover:bg-secondary/70`}>GÖRÜNTÜLE</button>}
                   {!isActive && <button onClick={() => approve(u)} className={`${btn} bg-green-500/20 text-green-400 hover:bg-green-500/30`}>ONAYLA</button>}
-                  {!pendingOnly && <button onClick={() => toggleActive(u)} className={`${btn} ${isActive ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'}`}>{isActive ? 'PASİF YAP' : 'AKTİF YAP'}</button>}
+                  {!pendingOnly && <button onClick={() => toggleActive(u)} className={`${btn} ${isActive ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'}`}>{isActive ? 'ASKIYA AL' : 'AKTİF ET'}</button>}
                   {pendingOnly && <button onClick={() => reject(u)} className={`${btn} bg-red-500/20 text-red-400 hover:bg-red-500/30`}>REDDET</button>}
                   {!pendingOnly && <button onClick={() => extend(u)} className={`${btn} bg-blue-500/20 text-blue-400 hover:bg-blue-500/30`}>+30 GÜN</button>}
                   {!pendingOnly && <button onClick={() => resetPass(u)} className={`${btn} bg-purple-500/20 text-purple-400 hover:bg-purple-500/30`}>ŞİFRE SIFIRLA</button>}
@@ -114,6 +132,7 @@ export default function AdminUsers({ pendingOnly = false }) {
             <h3 className="font-bold text-lg mb-3">{detail.username || detail.full_name}</h3>
             <div className="space-y-1.5 text-sm">
               <p><span className="text-muted-foreground">Kullanıcı adı:</span> {detail.username || detail.full_name || '-'}</p>
+              <p><span className="text-muted-foreground">Üye No:</span> {detail.member_id || '-'}</p>
               <p><span className="text-muted-foreground">E-posta:</span> {detail.email}</p>
               <p><span className="text-muted-foreground">Kayıt tarihi:</span> {detail.created_date ? new Date(detail.created_date).toLocaleDateString('tr-TR') : '-'}</p>
               <p><span className="text-muted-foreground">Üyelik durumu:</span> {detail.membership_status || '-'}</p>

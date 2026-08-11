@@ -64,6 +64,7 @@ export default function Register() {
             full_name: fullName, username, phone, avatar,
             membership_status: "pending", package_id: packages.find((p) => p.name === pkg)?.id || "",
           });
+          await base44.functions.invoke('ensure-member-id').catch(() => {});
         } catch {}
       }
       toast({ title: "Kayıt tamamlandı", description: "Hesabınız admin onayı bekliyor." });
