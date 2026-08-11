@@ -25,6 +25,15 @@ export default function AdminSupport() {
   }).catch(() => {}); };
   useEffect(load, []);
   useEffect(() => {
+    const unsub = base44.entities.SupportTicket.subscribe((ev) => {
+      if (ev.type === 'create') {
+        setTickets((prev) => [ev.data, ...prev.filter((t) => t.id !== ev.data.id)]);
+        if (!active) setActive(ev.data);
+      }
+    });
+    return unsub;
+  }, []);
+  useEffect(() => {
     if (!active) return;
     base44.entities.SupportMessage.filter({ ticket_id: active.id }, 'created_date', 200).then((m) => { setMessages(m); setTimeout(() => endRef.current?.scrollIntoView(), 50); }).catch(() => {});
     const unsub = base44.entities.SupportMessage.subscribe((ev) => { if (ev.type === 'create' && ev.data?.ticket_id === active.id) { setMessages((p) => [...p, ev.data]); setTimeout(() => endRef.current?.scrollIntoView(), 50); } });

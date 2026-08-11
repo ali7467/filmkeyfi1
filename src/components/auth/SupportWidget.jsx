@@ -23,7 +23,10 @@ export default function SupportWidget() {
         setMessages([]);
         return;
       }
-      setMessages(res.messages || []);
+      // Sadece sunucudan mesaj geldiyse güncelle — optimistic mesajlar silinmesin
+      if (res.messages && res.messages.length > 0) {
+        setMessages(res.messages);
+      }
       setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     } catch {}
   };
@@ -46,7 +49,7 @@ export default function SupportWidget() {
       });
       localStorage.setItem("guest_ticket_id", res.ticket_id);
       setTicketId(res.ticket_id);
-      poll(res.ticket_id);
+      setTimeout(() => poll(res.ticket_id), 500);
     } catch {
       setError("Mesaj gönderilemedi");
     } finally {

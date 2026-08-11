@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
+import { waitUntil } from 'base44:runtime';
 import { sendPushToAll } from '../../shared/webPush.ts';
 
 export default async function(req) {
@@ -26,23 +27,25 @@ export default async function(req) {
         text: text || '📷 Fotoğraf',
         file_url: file_url || ''
       });
-      // Admin'e push bildirimi gönder
-      await sendPushToAll(base44, '🎫 Yeni Destek Talebi', (text || 'Yeni destek talebi').slice(0, 100), '/admin/destek');
+      // Admin'e push bildirimi gönder (arka planda, yanıtı geciktirme)
+      waitUntil(sendPushToAll(base44, '🎫 Yeni Destek Talebi', (text || 'Yeni destek talebi').slice(0, 100), '/admin/destek'));
       return Response.json({ ticket_id: ticket.id });
     }
 
     if (action === 'send') {
       if (!ticket_id || (!text && !file_url)) return Response.json({ error: 'eksik bilgi' }, { status: 400 });
+      const ticket = await base44.asServiceRole.entities.SupportTicket.get(ticket_id).catch(() => null);
+      const ownerId = ticket?.user_id || 'guest';
       await base44.asServiceRole.entities.SupportMessage.create({
         ticket_id,
-        owner_id: 'guest',
-        user_id: 'guest',
+        owner_id: ownerId,
+        user_id: ownerId,
         sender: 'user',
         text: text || '📷 Fotoğraf',
         file_url: file_url || ''
       });
-      // Admin'e push bildirimi gönder
-      await sendPushToAll(base44, '💬 Yeni Destek Mesajı', (text || 'Yeni mesaj').slice(0, 100), '/admin/destek');
+      // Admin'e push bildirimi gönder (arka planda)
+      waitUntil(sendPushToAll(base44, '💬 Yeni Destek Mesajı', (text || 'Yeni mesaj').slice(0, 100), '/admin/destek'));
       return Response.json({ ok: true });
     }
 
