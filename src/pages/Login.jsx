@@ -4,14 +4,15 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, Mail, Lock, Loader2, ShieldCheck } from "lucide-react";
-import AuthLayout from "@/components/AuthLayout";
-import GoogleIcon from "@/components/GoogleIcon";
+import { LogIn, Mail, Lock, Loader2, Eye, EyeOff, ArrowRight, Film, Sparkles, MessageSquare, Lock as LockIcon, Users } from "lucide-react";
+import AuthBackground from "@/components/auth/AuthBackground";
 import { safeReturnTo } from "@/lib/authReturnTo";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const returnTo = safeReturnTo();
@@ -30,109 +31,138 @@ export default function Login() {
     }
   };
 
-  const handleGoogle = () => {
-    base44.auth.loginWithProvider("google", returnTo);
-  };
+  const features = [
+    { icon: Sparkles, label: "Yüksek Kalite" },
+    { icon: MessageSquare, label: "Canlı Oda Sohbeti" },
+    { icon: LockIcon, label: "Şifreli & Şifresiz Odalar" },
+    { icon: Users, label: "Arkadaşlarla İzle" },
+  ];
 
   return (
-    <AuthLayout
-      icon={LogIn}
-      title="Tekrar hoş geldin"
-      subtitle="Hesabına giriş yap"
-      footer={
-        <>
-          Hesabın yok mu?{" "}
-          <Link
-            to={"/register" + (returnTo !== "/" ? "?returnTo=" + encodeURIComponent(returnTo) : "")}
-            className="text-primary font-medium hover:underline"
-          >
-            Hesap oluştur
-          </Link>
-        </>
-      }
-    >
-      <Button
-        variant="outline"
-        className="w-full h-12 text-sm font-medium mb-6"
-        onClick={handleGoogle}
-      >
-        <GoogleIcon className="w-5 h-5 mr-2" />
-        Google ile devam et
-      </Button>
-
-      <div className="relative mb-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border" />
+    <AuthBackground>
+      {/* Logo */}
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center gap-2 mb-2">
+          <div className="w-10 h-10 rounded-xl bg-[#e50914] flex items-center justify-center">
+            <Film className="w-5 h-5 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-white">FİLM KEYFİ</h1>
         </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-3 text-muted-foreground">veya</span>
-        </div>
+        <p className="text-sm text-[#a0a0a0]">Filmini seç, keyfini çıkar.</p>
       </div>
 
-      {error && (
-        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          {error}
+      {/* Login Box */}
+      <div className="bg-[#141414]/95 backdrop-blur-sm rounded-2xl border border-[#2a2a2a] p-7 shadow-2xl">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-white">Hoş Geldin!</h2>
+          <p className="text-sm text-[#a0a0a0] mt-1">Hesabına giriş yaparak devam et.</p>
         </div>
-      )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">E-posta</Label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              autoFocus
-              placeholder="ornek@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="pl-10 h-12"
-              required
-            />
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+            {error}
           </div>
-        </div>
-        <div className="space-y-2">
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-[#a0a0a0]">E-posta veya kullanıcı adı</Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#a0a0a0]" aria-hidden="true" />
+              <Input
+                id="email"
+                type="text"
+                autoComplete="email"
+                autoFocus
+                placeholder="ornek@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="pl-10 h-12 bg-[#0a0a0a] border-[#2a2a2a] text-white placeholder:text-[#555] focus:border-[#e50914]"
+                required
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password" className="text-[#a0a0a0]">Şifre</Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#a0a0a0]" aria-hidden="true" />
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="pl-10 pr-10 h-12 bg-[#0a0a0a] border-[#2a2a2a] text-white placeholder:text-[#555] focus:border-[#e50914]"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#a0a0a0] hover:text-white"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
           <div className="flex items-center justify-between">
-            <Label htmlFor="password">Şifre</Label>
-            <Link to="/forgot-password" className="text-xs text-primary hover:underline">
-              Şifremi unuttum
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="w-4 h-4 rounded accent-[#e50914] bg-[#0a0a0a] border-[#2a2a2a]"
+              />
+              <span className="text-sm text-[#a0a0a0]">Beni hatırla</span>
+            </label>
+            <Link to="/forgot-password" className="text-sm text-[#e50914] hover:underline">
+              Şifremi Unuttum?
             </Link>
           </div>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 h-12"
-              required
-            />
+          <Button
+            type="submit"
+            className="w-full h-12 font-semibold bg-[#e50914] hover:bg-[#f6121d] text-white"
+            disabled={loading}
+          >
+            {loading ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Giriş yapılıyor...</>
+            ) : (
+              <>Giriş Yap <ArrowRight className="w-4 h-4 ml-2" /></>
+            )}
+          </Button>
+        </form>
+
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-[#2a2a2a]" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-[#141414] px-3 text-[#a0a0a0]">veya</span>
           </div>
         </div>
-        <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Giriş yapılıyor...
-            </>
-          ) : (
-            "Giriş Yap"
-          )}
-        </Button>
-      </form>
 
-      <div className="mt-6 pt-4 border-t border-border text-center text-sm text-muted-foreground">
-        <ShieldCheck className="w-4 h-4 inline mr-1 -mt-0.5 text-primary" />
-        Yönetici misiniz?{" "}
-        <Link to="/admin" className="text-primary font-medium hover:underline">
-          Yönetici paneline git
+        <Link to={"/register" + (returnTo !== "/" ? "?returnTo=" + encodeURIComponent(returnTo) : "")}>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full h-12 font-medium border-[#2a2a2a] bg-transparent text-white hover:bg-[#1a1a1a] hover:text-white"
+          >
+            Hesap Oluştur
+          </Button>
         </Link>
       </div>
-    </AuthLayout>
+
+      {/* Footer Features */}
+      <div className="grid grid-cols-2 gap-3 mt-6">
+        {features.map((f) => (
+          <div key={f.label} className="flex items-center gap-2 text-xs text-[#a0a0a0]">
+            <f.icon className="w-4 h-4 text-[#e50914] shrink-0" />
+            <span>{f.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-center text-xs text-[#555] mt-6">© 2024 Film Keyfi. Tüm hakları saklıdır.</p>
+    </AuthBackground>
   );
 }
