@@ -14,11 +14,16 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
   const [text, setText] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const [loading, setLoading] = useState(true);
-  const endRef = useRef(null);
+  const scrollRef = useRef(null);
+
+  const scrollToBottom = () => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  };
 
   const load = () => {
     base44.entities.RoomMessage.filter({ room_id: roomId }, 'created_date', 200)
-      .then((r) => { setMessages(r); setLoading(false); endRef.current?.scrollIntoView({ behavior: 'smooth' }); })
+      .then((r) => { setMessages(r); setLoading(false); requestAnimationFrame(scrollToBottom); })
       .catch(() => setLoading(false));
   };
 
@@ -27,7 +32,7 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
     const unsub = base44.entities.RoomMessage.subscribe((ev) => {
       if (ev.type === 'create') {
         setMessages((prev) => prev.some((m) => m.id === ev.data.id) ? prev : [...prev, ev.data]);
-        setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+        setTimeout(scrollToBottom, 50);
       }
     });
     return unsub;
@@ -70,7 +75,7 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary"><X className="w-5 h-5" /></button>
         </div>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
         {loading ? <p className="text-center text-sm text-muted-foreground py-8">Yükleniyor...</p> :
          messages.length === 0 ? <p className="text-center text-sm text-muted-foreground py-8">Henüz mesaj yok. İlk mesajı sen at! 🍿</p> :
          messages.map((m) => (
@@ -93,8 +98,7 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
              )}
            </div>
          ))}
-        <div ref={endRef} />
-      </div>
+         </div>
       {showEmoji && (
         <div className="px-3 py-2 border-t border-border flex flex-wrap gap-1">
           {EMOJIS.map((e) => <button key={e} onClick={() => setText((t) => t + e)} className="text-xl hover:bg-secondary rounded p-1">{e}</button>)}

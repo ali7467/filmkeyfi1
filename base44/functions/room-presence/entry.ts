@@ -12,8 +12,8 @@ export default async function(req) {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json();
-    const { action, room_id, password } = body || {};
-    if (!room_id || !['join', 'leave'].includes(action)) {
+    const { action, room_id, password, target_id } = body || {};
+    if (!room_id || !['join', 'leave', 'kick'].includes(action)) {
       return Response.json({ error: 'invalid request' }, { status: 400 });
     }
     const name = user.username || user.full_name || 'Kullanıcı';
@@ -21,18 +21,24 @@ export default async function(req) {
     if (!room) return Response.json({ error: 'oda bulunamadı' }, { status: 404 });
     if (room.status === 'closed') return Response.json({ error: 'closed' }, { status: 403 });
 
+    const me = await base44.asServiceRole.entities.User.get(user.id);
+    const isAdmin = me.role === 'admin';
+    const isOwner = room.owner_id === user.id;
+    const ghost = isAdmin && !isOwner;
+
     if (action === 'join') {
-      const me = await base44.asServiceRole.entities.User.get(user.id);
-      if (me.membership_status !== 'active') {
+      if (me.membership_status !== 'active' && !isAdmin) {
         await base44.asServiceRole.entities.SecurityLog.create({
           action: 'room_join_denied', user_id: user.id, user_email: user.email,
           detail: 'membership inactive', level: 'warning'
         });
         return Response.json({ error: 'üyelik aktif değil' }, { status: 403 });
       }
+      // Admin ghost mode: görünmez katılım
+      if (ghost) return Response.json({ ok: true, ghost: true });
       const participants = room.participants || [];
       const already = participants.some((p) => p.user_id === user.id);
-      if (!already && room.password && room.owner_id !== user.id) {
+      if (!already && room.password && !isOwner) {
         const [salt, hash] = room.password.split(':');
         if (!password || !salt || hash !== await sha256Hex(salt, password)) {
           await base44.asServiceRole.entities.SecurityLog.create({
@@ -54,26 +60,45 @@ export default async function(req) {
         });
       }
       return Response.json({ ok: true });
-    } else {
-      const participants = (room.participants || []).filter((p) => p.user_id !== user.id);
+    }
+
+    if (action === 'kick') {
+      if (!isOwner && !isAdmin) return Response.json({ error: 'yetkisiz' }, { status: 403 });
+      const participants = (room.participants || []).filter((p) => p.user_id !== target_id);
+      const targetName = (room.participants || []).find((p) => p.user_id === target_id)?.name || 'Kullanıcı';
       if (participants.length === 0) {
         await base44.asServiceRole.entities.RoomMessage.deleteMany({ room_id });
         await base44.asServiceRole.entities.Room.delete(room_id);
         return Response.json({ ok: true, deleted: true });
       }
-      let owner_id = room.owner_id;
-      let owner_name = room.owner_name;
-      if (room.owner_id === user.id && participants.length > 0) {
-        owner_id = participants[0].user_id;
-        owner_name = participants[0].name;
-      }
-      await base44.asServiceRole.entities.Room.update(room_id, { participants, owner_id, owner_name });
+      await base44.asServiceRole.entities.Room.update(room_id, { participants });
       await base44.asServiceRole.entities.RoomMessage.create({
-        room_id, user_id: user.id, user_name: name,
-        text: `${name} odadan ayrıldı.`, type: 'system'
+        room_id, user_id: target_id, user_name: targetName,
+        text: `${targetName} odadan atıldı.`, type: 'system'
       });
       return Response.json({ ok: true });
     }
+
+    // leave
+    if (ghost) return Response.json({ ok: true });
+    const participants = (room.participants || []).filter((p) => p.user_id !== user.id);
+    if (participants.length === 0) {
+      await base44.asServiceRole.entities.RoomMessage.deleteMany({ room_id });
+      await base44.asServiceRole.entities.Room.delete(room_id);
+      return Response.json({ ok: true, deleted: true });
+    }
+    let owner_id = room.owner_id;
+    let owner_name = room.owner_name;
+    if (isOwner && participants.length > 0) {
+      owner_id = participants[0].user_id;
+      owner_name = participants[0].name;
+    }
+    await base44.asServiceRole.entities.Room.update(room_id, { participants, owner_id, owner_name });
+    await base44.asServiceRole.entities.RoomMessage.create({
+      room_id, user_id: user.id, user_name: name,
+      text: `${name} odadan ayrıldı.`, type: 'system'
+    });
+    return Response.json({ ok: true });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
   }

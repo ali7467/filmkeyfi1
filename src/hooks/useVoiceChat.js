@@ -12,7 +12,7 @@ const ICE_SERVERS = {
  * Gerçek zamanlı WebRTC sesli sohbet (mesh network).
  * Sinyalleme VoiceSignal entity'si üzerinden yapılır.
  */
-export function useVoiceChat({ roomId, user, participants, voiceEnabled }) {
+export function useVoiceChat({ roomId, user, participants, voiceEnabled, onSpeakingChange }) {
   const [muted, setMuted] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [active, setActive] = useState(false);
@@ -143,6 +143,8 @@ export function useVoiceChat({ roomId, user, participants, voiceEnabled }) {
   useEffect(() => {
     if (active) startCall();
   }, [participants, active]);
+
+  useEffect(() => { onSpeakingChange?.(speaking); }, [speaking]);
 
   const toggleMute = useCallback(() => {
     const next = !mutedRef.current;

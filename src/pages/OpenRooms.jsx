@@ -16,15 +16,15 @@ export default function OpenRooms() {
           base44.entities.Room.filter({ status: 'active' }, '-created_date', 200).catch(() => []),
           base44.entities.Movie.list(500).catch(() => []),
         ]);
-        setRooms(r.filter((x) => !x.hidden));
+        setRooms(r.filter((x) => !x.hidden && (x.participants?.length || 0) > 0));
         const map = {}; m.forEach((mv) => { map[mv.id] = mv; });
         setMovies(map);
       } finally { setLoading(false); }
     };
     load();
     const unsub = base44.entities.Room.subscribe((ev) => {
-      if (ev.type === 'create' && ev.data?.status === 'active' && !ev.data.hidden) setRooms((p) => [ev.data, ...p.filter((x) => x.id !== ev.data.id)]);
-      if (ev.type === 'update') setRooms((p) => p.map((x) => (x.id === ev.data.id ? ev.data : x)).filter((x) => x.status === 'active' && !x.hidden));
+      if (ev.type === 'create' && ev.data?.status === 'active' && !ev.data.hidden && (ev.data.participants?.length || 0) > 0) setRooms((p) => [ev.data, ...p.filter((x) => x.id !== ev.data.id)]);
+      if (ev.type === 'update') setRooms((p) => p.map((x) => (x.id === ev.data.id ? ev.data : x)).filter((x) => x.status === 'active' && !x.hidden && (x.participants?.length || 0) > 0));
       if (ev.type === 'delete') setRooms((p) => p.filter((x) => x.id !== ev.id));
     });
     return unsub;

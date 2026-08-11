@@ -21,12 +21,27 @@ export default function WatchParty() {
   const [needPassword, setNeedPassword] = useState(false);
   const [pwInput, setPwInput] = useState('');
   const [syncState, setSyncState] = useState({ is_playing: false, current_time: 0, last_sync: null });
+  const [unread, setUnread] = useState(0);
   const joinedRef = useRef(false);
+  const kickedRef = useRef(false);
   const lastUpdateRef = useRef(0);
   const playerWrapRef = useRef(null);
   const touchStart = useRef({ x: 0, y: 0 });
+  const speakingRef = useRef(false);
+  const lastSpeakingSync = useRef(0);
 
-  const voice = useVoiceChat({ roomId: id, user, participants: room?.participants, voiceEnabled: !!room?.voice_enabled });
+  const updateMySpeaking = (speaking) => {
+    if (speakingRef.current === speaking) return;
+    speakingRef.current = speaking;
+    const now = Date.now();
+    if (now - lastSpeakingSync.current < 600) return;
+    lastSpeakingSync.current = now;
+    if (!room || !user) return;
+    const participants = (room.participants || []).map((p) => p.user_id === user.id ? { ...p, speaking } : p);
+    base44.entities.Room.update(id, { participants }).catch(() => {});
+  };
+
+  const voice = useVoiceChat({ roomId: id, user, participants: room?.participants, voiceEnabled: !!room?.voice_enabled, onSpeakingChange: updateMySpeaking });
 
   useEffect(() => {
     base44.entities.Room.get(id).then(async (r) => {
@@ -66,11 +81,36 @@ export default function WatchParty() {
     return unsub;
   }, [id]);
 
+  // Sohbet kapalıyken gelen mesajlar için okunmamış sayacı
   useEffect(() => {
-    return () => {
-      if (!user || !joinedRef.current) return;
-      base44.functions.invoke('room-presence', { action: 'leave', room_id: id }).catch(() => {});
-    };
+    if (chatOpen) { setUnread(0); return; }
+    const unsub = base44.entities.RoomMessage.subscribe((ev) => {
+      if (ev.type === 'create' && ev.data?.room_id === id && ev.data?.type !== 'system') setUnread((u) => u + 1);
+    });
+    return unsub;
+  }, [chatOpen, id]);
+
+  // Atılma tespiti: katılımcı listesinden çıkarıldıysa yönlendir
+  useEffect(() => {
+    if (!user || !joinedRef.current || !room || room.owner_id === user.id || user.role === 'admin') return;
+    const stillIn = (room.participants || []).some((p) => p.user_id === user.id);
+    if (!stillIn) {
+      kickedRef.current = true;
+      toast({ title: 'Odadan atıldınız', variant: 'destructive' });
+      navigate('/');
+    }
+  }, [room?.participants, user?.id]);
+
+  const leaveRoom = async () => {
+    if (!user || !joinedRef.current || kickedRef.current) return;
+    joinedRef.current = false;
+    try { await base44.functions.invoke('room-presence', { action: 'leave', room_id: id }); } catch {}
+  };
+
+  const handleBack = async () => { await leaveRoom(); navigate(-1); };
+
+  useEffect(() => {
+    return () => { leaveRoom(); };
   }, []);
 
   const isOwner = user?.id === room?.owner_id;
@@ -105,8 +145,8 @@ export default function WatchParty() {
 
   const removeUser = async (uid) => {
     if (!isOwner) return;
-    const participants = (room.participants || []).filter((p) => p.user_id !== uid);
-    await base44.entities.Room.update(id, { participants }).catch(() => {});
+    try { await base44.functions.invoke('room-presence', { action: 'kick', room_id: id, target_id: uid }); toast({ title: 'Kullanıcı odadan çıkarıldı' }); }
+    catch (e) { toast({ title: 'Çıkarılamadı', description: e.response?.data?.error || e.message, variant: 'destructive' }); }
     setShowViewers(false);
   };
 
@@ -149,12 +189,14 @@ export default function WatchParty() {
     <div className="fixed inset-0 bg-black flex flex-col overflow-hidden" style={{ touchAction: 'pan-y', overscrollBehavior: 'none' }}>
       {/* Üst kontrol çubuğu */}
       <div className="flex items-center gap-2 px-3 py-2 bg-background/95 border-b border-border shrink-0 z-20" style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top))' }}>
-        <button onClick={() => navigate(-1)} className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-semibold shrink-0">GERİ</button>
+        <button onClick={handleBack} className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-semibold shrink-0">GERİ</button>
         <h1 className="flex-1 min-w-0 text-center font-bold truncate px-2 text-sm sm:text-base">{room.name}</h1>
         <button onClick={() => setShowViewers(!showViewers)} className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-semibold shrink-0">İZLEYİCİ {room.participants?.length || 0}</button>
         {isOwner && <button onClick={toggleHidden} className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-semibold shrink-0">{room.hidden ? 'GÖSTER' : 'GİZLE'}</button>}
         {isOwner && !!room.password && <button onClick={removePassword} className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-semibold shrink-0">ŞİFRE KALDIR</button>}
-        <button onClick={() => setChatOpen(!chatOpen)} className={`px-3 py-1.5 rounded-lg text-sm font-semibold shrink-0 ${chatOpen ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>SOHBET</button>
+        <button onClick={() => setChatOpen(!chatOpen)} className={`relative px-3 py-1.5 rounded-lg text-sm font-semibold shrink-0 ${chatOpen ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>SOHBET
+          {!chatOpen && unread > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>}
+        </button>
       </div>
 
       {/* Video + sohbet alanı */}
@@ -179,8 +221,9 @@ export default function WatchParty() {
             <div className="space-y-1.5">
               {room.participants?.map((p) => (
                 <div key={p.user_id} className="flex items-center gap-2 text-sm">
-                  <Link to={`/kullanici/${p.user_id}`} className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold shrink-0">{(p.name || '?')[0]}</Link>
+                  <Link to={`/kullanici/${p.user_id}`} className={`w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold shrink-0 ${p.speaking ? 'ring-2 ring-green-400 animate-pulse' : ''}`}>{(p.name || '?')[0]}</Link>
                   <Link to={`/kullanici/${p.user_id}`} className="flex-1 truncate hover:underline">{p.name}{p.user_id === room.owner_id && <Crown className="w-3 h-3 text-amber-400 inline ml-1" />}</Link>
+                  {p.speaking && <span className="text-[10px] text-green-400 font-semibold">🔊</span>}
                   {isOwner && p.user_id !== user.id && <button onClick={() => removeUser(p.user_id)} className="text-xs text-destructive">Çıkar</button>}
                 </div>
               ))}
@@ -198,7 +241,12 @@ export default function WatchParty() {
             {voice.muted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />} {voice.muted ? 'SUSTURULDU' : 'KONUŞUYOR'}
           </button>
           <span className="text-xs text-muted-foreground">{voice.active ? 'Bağlı' : 'Bağlanıyor...'}</span>
-          {voice.speaking && <span className="text-xs text-green-400 font-medium">🔊 Konuşuyor</span>}
+          {(room.participants || []).filter((p) => p.speaking).map((p) => (
+            <Link key={p.user_id} to={`/kullanici/${p.user_id}`} className="inline-flex items-center gap-1.5 bg-green-500/15 text-green-400 px-2 py-1 rounded-full text-xs font-medium hover:bg-green-500/25">
+              <span className="w-5 h-5 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-[10px] font-bold">{(p.name || '?')[0]}</span>
+              {p.name} konuşuyor
+            </Link>
+          ))}
         </div>
       )}
     </div>
