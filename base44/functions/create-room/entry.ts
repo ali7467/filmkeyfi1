@@ -12,7 +12,7 @@ export default async function(req) {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json();
-    const { name, movie_id, movie_title, password, max_users, chat_enabled, voice_enabled } = body || {};
+    const { name, movie_id, movie_title, password, max_users, chat_enabled, voice_enabled, hidden } = body || {};
     if (!name || !movie_id) return Response.json({ error: 'isim ve film gerekli' }, { status: 400 });
 
     const owner_name = user.username || user.full_name || 'Kullanıcı';
@@ -26,7 +26,7 @@ export default async function(req) {
       max_users: Number(max_users) || 10,
       chat_enabled: chat_enabled !== false,
       voice_enabled: !!voice_enabled,
-      is_playing: false, current_time: 0, status: 'active',
+      is_playing: false, current_time: 0, status: 'active', hidden: !!hidden,
       participants: [{ user_id: user.id, name: owner_name, avatar: user.avatar || '', muted: false, speaking: false }]
     });
     await base44.asServiceRole.entities.RoomMessage.create({

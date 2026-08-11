@@ -10,7 +10,7 @@ export default function CreateRoom() {
   const { user } = useCurrentUser();
   const { toast } = useToast();
   const [movies, setMovies] = useState([]);
-  const [form, setForm] = useState({ name: '', movie_id: '', password: '', max_users: 10, chat_enabled: true, voice_enabled: false });
+  const [form, setForm] = useState({ name: '', movie_id: '', password: '', max_users: 10, chat_enabled: true, voice_enabled: false, hidden: false });
 
   useEffect(() => {
     base44.entities.Movie.filter({ published: true }, '-views', 100).then(setMovies).catch(() => {});
@@ -24,7 +24,7 @@ export default function CreateRoom() {
       const res = await base44.functions.invoke('create-room', {
         name: form.name, movie_id: form.movie_id, movie_title: movie?.title || '',
         password: form.password, max_users: Number(form.max_users),
-        chat_enabled: form.chat_enabled, voice_enabled: form.voice_enabled
+        chat_enabled: form.chat_enabled, voice_enabled: form.voice_enabled, hidden: form.hidden
       });
       toast({ title: 'Oda oluşturuldu' });
       navigate(`/oda/${res.data.id}`);
@@ -73,6 +73,10 @@ export default function CreateRoom() {
           <label className={`flex-1 flex items-center gap-2 p-3 rounded-lg border cursor-pointer ${form.voice_enabled ? 'border-accent bg-accent/10' : 'border-border bg-secondary/40'}`}>
             <input type="checkbox" checked={form.voice_enabled} onChange={(e) => setForm({ ...form, voice_enabled: e.target.checked })} className="accent-accent" />
             <Mic className="w-4 h-4" /> <span className="text-sm">Sesli sohbet</span>
+          </label>
+          <label className={`flex-1 flex items-center gap-2 p-3 rounded-lg border cursor-pointer ${form.hidden ? 'border-amber-500 bg-amber-500/10' : 'border-border bg-secondary/40'}`}>
+            <input type="checkbox" checked={form.hidden} onChange={(e) => setForm({ ...form, hidden: e.target.checked })} className="accent-amber-500" />
+            <Lock className="w-4 h-4" /> <span className="text-sm">Gizli oda</span>
           </label>
         </div>
         <button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-lg">Odayı Oluştur</button>

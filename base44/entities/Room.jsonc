@@ -20,6 +20,10 @@
     "password": {
       "type": "string"
     },
+    "hidden": {
+      "type": "boolean",
+      "default": false
+    },
     "max_users": {
       "type": "integer",
       "default": 10

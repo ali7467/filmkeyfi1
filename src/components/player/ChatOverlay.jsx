@@ -44,6 +44,12 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
     catch (err) { toast({ title: 'Silinemedi', variant: 'destructive' }); }
   };
 
+  const clearAll = async () => {
+    if (!confirm('Sohbetin tüm mesajlarını silmek istediğinize emin misiniz?')) return;
+    try { await base44.functions.invoke('clear-room-messages', { room_id: roomId }); setMessages([]); toast({ title: 'Tüm mesajlar silindi' }); }
+    catch (err) { toast({ title: 'Silinemedi', description: err.response?.data?.error || err.message, variant: 'destructive' }); }
+  };
+
   if (!chatEnabled) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center p-6 text-muted-foreground">
@@ -55,12 +61,15 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
   }
 
   return (
-    <div className="h-full flex flex-col bg-card/95 backdrop-blur">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+    <div className="h-full min-h-0 flex flex-col bg-card/95 backdrop-blur">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border gap-2">
         <h3 className="font-bold flex items-center gap-2">💬 Sohbet <span className="text-xs text-muted-foreground font-normal">({messages.length})</span></h3>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary"><X className="w-5 h-5" /></button>
+        <div className="flex items-center gap-1.5">
+          {isOwner && <button onClick={clearAll} className="px-2 py-1 rounded-lg bg-destructive/20 text-destructive text-xs font-semibold">TÜMÜNÜ SİL</button>}
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary"><X className="w-5 h-5" /></button>
+        </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
         {loading ? <p className="text-center text-sm text-muted-foreground py-8">Yükleniyor...</p> :
          messages.length === 0 ? <p className="text-center text-sm text-muted-foreground py-8">Henüz mesaj yok. İlk mesajı sen at! 🍿</p> :
          messages.map((m) => (

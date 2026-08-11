@@ -1,7 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Rewind, FastForward } from 'lucide-react';
-import Watermark from '@/components/player/Watermark';
-
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 export default function VideoPlayer({ src, title, onTimeUpdate, onPlayPause, onSeek, syncState, isOwner, subtitles, fullscreenRef, watermark }) {
@@ -131,7 +129,6 @@ export default function VideoPlayer({ src, title, onTimeUpdate, onPlayPause, onS
         onLoadedMetadata={onLoaded} onTimeUpdate={onTime} onPlay={handlePlay} onPause={handlePause}
         onWaiting={() => setBuffering(true)} onPlaying={() => setBuffering(false)}
         crossOrigin="anonymous" playsInline controls={false} disablePictureInPicture={!isOwner} />
-      {watermark && <Watermark user={watermark} />}
 
       {buffering && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}
 

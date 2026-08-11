@@ -84,8 +84,8 @@ export default function Profile() {
           <h1 className="text-2xl font-extrabold flex items-center gap-2 justify-center sm:justify-start">{user.username || user.full_name} {user.role === 'admin' && <Crown className="w-5 h-5 text-amber-400" />}</h1>
           <p className="text-sm text-muted-foreground">{user.email}</p>
           <div className="flex flex-wrap gap-2 mt-2 justify-center sm:justify-start">
-            <span className={`text-xs px-2 py-1 rounded ${user.membership_status === 'active' && !expired ? 'bg-green-500/20 text-green-400' : 'bg-destructive/20 text-destructive'}`}>
-              {user.membership_status === 'pending' ? 'Onay Bekliyor' : expired ? 'Süresi Doldu' : user.membership_status === 'active' ? 'Aktif Üyelik' : user.membership_status}
+            <span className={`text-xs px-2 py-1 rounded ${user.role === 'admin' ? 'bg-amber-500/20 text-amber-400' : user.membership_status === 'active' && !expired ? 'bg-green-500/20 text-green-400' : 'bg-destructive/20 text-destructive'}`}>
+              {user.role === 'admin' ? 'Kurucu · Süresiz' : user.membership_status === 'pending' ? 'Onay Bekliyor' : expired ? 'Süresi Doldu' : user.membership_status === 'active' ? 'Aktif Üyelik' : user.membership_status}
             </span>
             {pkg && <span className="text-xs px-2 py-1 rounded bg-accent/20 text-accent-foreground">{pkg.name}</span>}
           </div>
@@ -132,7 +132,7 @@ export default function Profile() {
               <Row label="Telefon" value={user.phone || '-'} />
               <Row label="Paket" value={pkg?.name || '-'} />
               <Row label="Başlangıç" value={user.membership_start ? new Date(user.membership_start).toLocaleDateString('tr-TR') : '-'} />
-              <Row label="Bitiş" value={user.membership_end ? new Date(user.membership_end).toLocaleDateString('tr-TR') : '-'} />
+              <Row label="Bitiş" value={user.role === 'admin' ? 'Süresiz' : (user.membership_end ? new Date(user.membership_end).toLocaleDateString('tr-TR') : '-')} />
               <button onClick={() => setEditing(true)} className="mt-2 bg-secondary px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1"><Settings className="w-4 h-4" /> Düzenle</button>
             </>
           )}

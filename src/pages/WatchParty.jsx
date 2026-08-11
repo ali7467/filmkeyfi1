@@ -91,6 +91,18 @@ export default function WatchParty() {
     await base44.entities.Room.update(id, { voice_enabled: !room.voice_enabled }).catch(() => {});
   };
 
+  const toggleHidden = async () => {
+    if (!isOwner) return;
+    try { await base44.entities.Room.update(id, { hidden: !room.hidden }); toast({ title: room.hidden ? 'Oda artık görünür' : 'Oda gizlendi' }); }
+    catch (e) { toast({ title: 'İşlem başarısız', variant: 'destructive' }); }
+  };
+
+  const removePassword = async () => {
+    if (!isOwner) return;
+    try { await base44.entities.Room.update(id, { password: '' }); toast({ title: 'Oda şifresi kaldırıldı' }); }
+    catch (e) { toast({ title: 'İşlem başarısız', variant: 'destructive' }); }
+  };
+
   const removeUser = async (uid) => {
     if (!isOwner) return;
     const participants = (room.participants || []).filter((p) => p.user_id !== uid);
@@ -140,6 +152,8 @@ export default function WatchParty() {
         <button onClick={() => navigate(-1)} className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-semibold shrink-0">GERİ</button>
         <h1 className="flex-1 min-w-0 text-center font-bold truncate px-2 text-sm sm:text-base">{room.name}</h1>
         <button onClick={() => setShowViewers(!showViewers)} className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-semibold shrink-0">İZLEYİCİ {room.participants?.length || 0}</button>
+        {isOwner && <button onClick={toggleHidden} className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-semibold shrink-0">{room.hidden ? 'GÖSTER' : 'GİZLE'}</button>}
+        {isOwner && !!room.password && <button onClick={removePassword} className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-semibold shrink-0">ŞİFRE KALDIR</button>}
         <button onClick={() => setChatOpen(!chatOpen)} className={`px-3 py-1.5 rounded-lg text-sm font-semibold shrink-0 ${chatOpen ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>SOHBET</button>
       </div>
 
@@ -151,7 +165,7 @@ export default function WatchParty() {
         </div>
 
         {chatOpen && (
-          <div className="w-[300px] max-w-[42%] border-l border-border bg-card flex flex-col shrink-0">
+          <div className="w-[300px] max-w-[42%] min-h-0 border-l border-border bg-card flex flex-col shrink-0">
             <ChatOverlay roomId={id} chatEnabled={chatEnabled} isOwner={isOwner} onClose={() => setChatOpen(false)} />
           </div>
         )}
