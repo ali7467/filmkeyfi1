@@ -230,7 +230,7 @@ export default function WatchParty() {
             <div className="space-y-1.5">
               {room.participants?.map((p) => (
                 <div key={p.user_id} className="flex items-center gap-2 text-sm">
-                  <Link to={`/kullanici/${p.user_id}`} className={`w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold shrink-0 ${p.speaking ? 'ring-2 ring-green-400 animate-pulse' : ''}`}>{(p.name || '?')[0]}</Link>
+                  <Link to={`/kullanici/${p.user_id}`} className={`w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold shrink-0 transition-transform ${p.speaking ? 'speaking-glow scale-110' : ''}`}>{(p.name || '?')[0]}</Link>
                   <Link to={`/kullanici/${p.user_id}`} className="flex-1 truncate hover:underline">{p.name}{p.user_id === room.owner_id && <Crown className="w-3 h-3 text-amber-400 inline ml-1" />}</Link>
                   {p.speaking && <span className="text-[10px] text-green-400 font-semibold">🔊</span>}
                   {canMod && p.user_id !== user.id && <button onClick={() => removeUser(p.user_id)} className="text-xs text-destructive">Çıkar</button>}
@@ -264,7 +264,7 @@ export default function WatchParty() {
           <span className="text-xs text-muted-foreground">{voice.active ? 'Bağlı' : 'Bağlanıyor...'}</span>
           {(room.participants || []).filter((p) => p.speaking).map((p) => (
             <Link key={p.user_id} to={`/kullanici/${p.user_id}`} className="inline-flex items-center gap-1.5 bg-green-500/15 text-green-400 px-2 py-1 rounded-full text-xs font-medium hover:bg-green-500/25">
-              <span className="w-5 h-5 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-[10px] font-bold">{(p.name || '?')[0]}</span>
+              <span className="w-5 h-5 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-[10px] font-bold speaking-glow">{(p.name || '?')[0]}</span>
               {p.name} konuşuyor
             </Link>
           ))}
