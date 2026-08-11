@@ -41,14 +41,6 @@ export default function Login() {
 
   return (
     <AuthBackground>
-      {/* Karakter görseli */}
-      <div className="flex justify-center mb-4">
-        <img
-          src="https://media.base44.com/images/public/6a77d66e4da6de214628ee62/9c1e1916f_generated_image.png"
-          alt="Film Keyfi karakteri"
-          className="w-32 h-32 object-contain drop-shadow-2xl"
-        />
-      </div>
       {/* Logo */}
       <div className="text-center mb-8">
         <div className="inline-flex items-center gap-2 mb-2">
