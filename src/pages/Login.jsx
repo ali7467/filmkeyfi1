@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogIn, Mail, Lock, Loader2, Eye, EyeOff, ArrowRight, Film, Sparkles, MessageSquare, Lock as LockIcon, Users } from "lucide-react";
 import AuthBackground from "@/components/auth/AuthBackground";
+import SupportWidget from "@/components/auth/SupportWidget";
 import { safeReturnTo } from "@/lib/authReturnTo";
 
 export default function Login() {
@@ -40,6 +41,14 @@ export default function Login() {
 
   return (
     <AuthBackground>
+      {/* Karakter görseli */}
+      <div className="flex justify-center mb-4">
+        <img
+          src="https://media.base44.com/images/public/6a77d66e4da6de214628ee62/9c1e1916f_generated_image.png"
+          alt="Film Keyfi karakteri"
+          className="w-32 h-32 object-contain drop-shadow-2xl"
+        />
+      </div>
       {/* Logo */}
       <div className="text-center mb-8">
         <div className="inline-flex items-center gap-2 mb-2">
@@ -163,6 +172,9 @@ export default function Login() {
       </div>
 
       <p className="text-center text-xs text-[#555] mt-6">© 2024 Film Keyfi. Tüm hakları saklıdır.</p>
+
+      {/* Canlı destek butonu */}
+      <SupportWidget />
     </AuthBackground>
   );
 }

@@ -65,7 +65,7 @@ export default function Register() {
         } catch {}
       }
       toast({ title: "Kayıt tamamlandı", description: "Hesabınız admin onayı bekliyor." });
-      window.location.href = safeReturnTo();
+      window.location.href = "/onay-bekleniyor";
     } catch (err) {
       setError(err.message || "Geçersiz doğrulama kodu");
     } finally {
