@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
+import { rateLimit, safeErrorResponse, logSecurity } from '../../shared/security.ts';
 
 async function sha256Hex(salt, pw) {
   const data = new TextEncoder().encode(salt + pw);
@@ -28,6 +29,9 @@ export default async function(req) {
     const ghost = isAdmin && !isOwner;
 
     if (action === 'join') {
+      // Rate limit: 10 katılım / dakika / kullanıcı
+      const rlJoin = await rateLimit(base44, 'room-join:' + user.id, user.id, 10, 60000);
+      if (!rlJoin.allowed) return Response.json({ error: 'çok hızlı katılım denemesi' }, { status: 429 });
       if (me.membership_status !== 'active' && !isMod) {
         await base44.asServiceRole.entities.SecurityLog.create({
           action: 'room_join_denied', user_id: user.id, user_email: user.email,
@@ -168,6 +172,6 @@ export default async function(req) {
     }
     return Response.json({ ok: true });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return safeErrorResponse(e);
   }
 }

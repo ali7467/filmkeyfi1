@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
+import { safeErrorResponse } from '../../shared/security.ts';
 
 export default async function(req) {
   try {
@@ -17,6 +18,6 @@ export default async function(req) {
     await base44.asServiceRole.entities.User.update(user.id, { member_id: id });
     return Response.json({ member_id: id });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return safeErrorResponse(e);
   }
 }

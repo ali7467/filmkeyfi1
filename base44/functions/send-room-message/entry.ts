@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
+import { sanitizeText, rateLimit, safeErrorResponse, logSecurity } from '../../shared/security.ts';
 
 export default async function(req) {
   try {
@@ -12,36 +13,33 @@ export default async function(req) {
     }
     if (text.length > 1000) return Response.json({ error: 'mesaj çok uzun' }, { status: 400 });
 
-    // rate limit: 15 messages per 30s per user
-    const key = 'chat:' + user.id;
-    const rl = await base44.asServiceRole.entities.RateLimit.filter({ key });
-    const now = Date.now();
-    const rec = rl[0];
-    const windowMs = 30000;
-    const start = rec?.window_start ? new Date(rec.window_start).getTime() : 0;
-    if (!rec || now - start > windowMs) {
-      if (!rec) {
-        await base44.asServiceRole.entities.RateLimit.create({
-          key, user_id: user.id, count: 1, window_start: new Date().toISOString()
-        });
-      } else {
-        await base44.asServiceRole.entities.RateLimit.update(rec.id, {
-          count: 1, window_start: new Date().toISOString()
-        });
-      }
-    } else {
-      if (rec.count >= 15) {
-        await base44.asServiceRole.entities.SecurityLog.create({
-          action: 'chat_rate_limit', user_id: user.id, user_email: user.email,
-          detail: room_id, level: 'warning'
-        });
-        return Response.json({ error: 'çok hızlı mesaj gönderiyorsunuz' }, { status: 429 });
-      }
-      await base44.asServiceRole.entities.RateLimit.update(rec.id, { count: rec.count + 1 });
+    // IDOR koruması: kullanıcının oda katılımcısı olduğunu doğrula
+    const room = await base44.asServiceRole.entities.Room.get(room_id).catch(() => null);
+    if (!room) return Response.json({ error: 'oda bulunamadı' }, { status: 404 });
+    const me = await base44.asServiceRole.entities.User.get(user.id);
+    const isMod = me.role === 'admin' || me.role === 'moderator';
+    const isOwner = room.owner_id === user.id;
+    const isParticipant = (room.participants || []).some((p) => p.user_id === user.id);
+    if (!isParticipant && !isOwner && !isMod) {
+      await logSecurity(base44, 'room_msg_denied', user, 'not participant: ' + room_id, 'warning');
+      return Response.json({ error: 'bu odada mesaj gönderemezsiniz' }, { status: 403 });
     }
 
-    // sanitize: strip html tags and javascript: schemes
-    const clean = text.replace(/<[^>]*>/g, '').replace(/javascript:/gi, '').slice(0, 1000);
+    // Sohbet kapalıysa sadece admin/moderator mesaj gönderebilir
+    if (!room.chat_enabled && !isMod) {
+      return Response.json({ error: 'sohbet kapalı' }, { status: 403 });
+    }
+
+    // Rate limit: 15 mesaj / 30 saniye / kullanıcı
+    const key = 'chat:' + user.id;
+    const rl = await rateLimit(base44, key, user.id, 15, 30000);
+    if (!rl.allowed) {
+      return Response.json({ error: 'çok hızlı mesaj gönderiyorsunuz' }, { status: 429 });
+    }
+
+    // XSS sanitizasyonu
+    const clean = sanitizeText(text, 1000);
+    if (!clean) return Response.json({ error: 'boş mesaj' }, { status: 400 });
     const name = user.username || user.full_name || 'Kullanıcı';
     await base44.asServiceRole.entities.RoomMessage.create({
       room_id, user_id: user.id, user_name: name, user_avatar: user.avatar || '',
@@ -49,6 +47,6 @@ export default async function(req) {
     });
     return Response.json({ ok: true });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return safeErrorResponse(e);
   }
 }

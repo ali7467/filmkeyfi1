@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
+import { rateLimit, safeErrorResponse } from '../../shared/security.ts';
 
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
@@ -81,6 +82,9 @@ export default async function(req) {
     }
 
     if (action === 'verify') {
+      // Rate limit: 10 verify denemesi / dakika (brute-force koruması)
+      const rl = await rateLimit(base44, '2fa-verify:' + user.id, user.id, 10, 60000);
+      if (!rl.allowed) return Response.json({ error: 'çok fazla deneme, bekleyin' }, { status: 429 });
       const me = await base44.asServiceRole.entities.User.get(user.id);
       if (!me.twofa_enabled || !me.twofa_secret) return Response.json({ ok: true, enabled: false });
       const counter = Math.floor(now / 30);
@@ -115,6 +119,6 @@ export default async function(req) {
 
     return Response.json({ error: 'invalid action' }, { status: 400 });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    return safeErrorResponse(e);
   }
 }
