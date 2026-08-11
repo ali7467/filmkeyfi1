@@ -13,6 +13,7 @@ export default function AdminRooms() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState(null);
+  const [confirmAll, setConfirmAll] = useState(false);
 
   const load = () => { base44.entities.Room.list(500).then((r) => { setRooms(r); setLoading(false); }).catch(() => setLoading(false)); };
   useEffect(load, []);
@@ -22,12 +23,20 @@ export default function AdminRooms() {
   const toggleChat = async (r) => { await base44.entities.Room.update(r.id, { chat_enabled: !r.chat_enabled }); await log('Sohbet durumu değişti', r.name); load(); };
   const toggleVoice = async (r) => { await base44.entities.Room.update(r.id, { voice_enabled: !r.voice_enabled }); await log('Sesli sohbet durumu değişti', r.name); load(); };
   const del = async () => { await base44.entities.Room.delete(confirm.id); await log('Oda silindi', confirm.name); toast({ title: 'Silindi' }); setConfirm(null); load(); };
+  const delAll = async () => {
+    await base44.entities.Room.deleteMany({});
+    await log('Tüm odalar silindi', `${rooms.length} oda`);
+    setConfirmAll(false); toast({ title: 'Tüm odalar silindi' }); load();
+  };
   const kick = async (r, uid) => { const p = (r.participants || []).filter((x) => x.user_id !== uid); await base44.entities.Room.update(r.id, { participants: p }); toast({ title: 'Kullanıcı çıkarıldı' }); load(); };
 
   if (loading) return <p className="text-muted-foreground">Yükleniyor...</p>;
   return (
     <div>
-      <h1 className="text-2xl font-extrabold mb-4">Odalar</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-extrabold">Odalar</h1>
+        {rooms.length > 0 && <button onClick={() => setConfirmAll(true)} className="inline-flex items-center gap-1.5 bg-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm font-semibold"><Trash2 className="w-4 h-4" /> Tümünü Sil</button>}
+      </div>
       {rooms.length === 0 ? <p className="text-muted-foreground text-sm">Oda yok.</p> :
         <div className="space-y-2">
           {rooms.map((r) => (
@@ -56,6 +65,7 @@ export default function AdminRooms() {
           ))}
         </div>}
       <ConfirmDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)} title="Odayı sil?" description={`${confirm?.name} silinecek.`} onConfirm={del} />
+      <ConfirmDialog open={confirmAll} onOpenChange={(o) => !o && setConfirmAll(false)} title="Tüm odaları sil?" description={`${rooms.length} oda kalıcı olarak silinecek.`} confirmText="Tümünü Sil" onConfirm={delAll} />
     </div>
   );
 }
