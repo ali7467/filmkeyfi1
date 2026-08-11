@@ -22,12 +22,12 @@ export default async function(req) {
     if (room.status === 'closed') return Response.json({ error: 'closed' }, { status: 403 });
 
     const me = await base44.asServiceRole.entities.User.get(user.id);
-    const isAdmin = me.role === 'admin';
+    const isMod = me.role === 'admin' || me.role === 'moderator';
     const isOwner = room.owner_id === user.id;
-    const ghost = isAdmin && !isOwner;
+    const ghost = isMod && !isOwner;
 
     if (action === 'join') {
-      if (me.membership_status !== 'active' && !isAdmin) {
+      if (me.membership_status !== 'active' && !isMod) {
         await base44.asServiceRole.entities.SecurityLog.create({
           action: 'room_join_denied', user_id: user.id, user_email: user.email,
           detail: 'membership inactive', level: 'warning'
@@ -63,7 +63,7 @@ export default async function(req) {
     }
 
     if (action === 'kick') {
-      if (!isOwner && !isAdmin) return Response.json({ error: 'yetkisiz' }, { status: 403 });
+      if (!isOwner && !isMod) return Response.json({ error: 'yetkisiz' }, { status: 403 });
       const participants = (room.participants || []).filter((p) => p.user_id !== target_id);
       const targetName = (room.participants || []).find((p) => p.user_id === target_id)?.name || 'Kullanıcı';
       if (participants.length === 0) {
@@ -80,7 +80,7 @@ export default async function(req) {
     }
 
     if (action === 'set-password') {
-      if (!isOwner && !isAdmin) return Response.json({ error: 'yetkisiz' }, { status: 403 });
+      if (!isOwner && !isMod) return Response.json({ error: 'yetkisiz' }, { status: 403 });
       if (!password) {
         await base44.asServiceRole.entities.Room.update(room_id, { password: '' });
         return Response.json({ ok: true });

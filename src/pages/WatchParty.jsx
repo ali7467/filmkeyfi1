@@ -99,7 +99,7 @@ export default function WatchParty() {
 
   // Atılma tespiti: katılımcı listesinden çıkarıldıysa yönlendir
   useEffect(() => {
-    if (!user || !joinedRef.current || !room || room.owner_id === user.id || user.role === 'admin' || ghostRef.current) return;
+    if (!user || !joinedRef.current || !room || room.owner_id === user.id || isMod || ghostRef.current) return;
     const stillIn = (room.participants || []).some((p) => p.user_id === user.id);
     if (!stillIn) {
       kickedRef.current = true;
@@ -121,8 +121,8 @@ export default function WatchParty() {
   }, []);
 
   const isOwner = user?.id === room?.owner_id;
-  const isAdmin = user?.role === 'admin';
-  const canMod = isOwner || isAdmin;
+  const isMod = user?.role === 'admin' || user?.role === 'moderator';
+  const canMod = isOwner || isMod;
 
   const updateRoom = async (patch) => {
     if (!isOwner) return;

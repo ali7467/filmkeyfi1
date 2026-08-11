@@ -11,7 +11,7 @@ export default async function(req) {
 
     const room = await base44.asServiceRole.entities.Room.get(room_id);
     if (!room) return Response.json({ error: 'oda bulunamadı' }, { status: 404 });
-    if (room.owner_id !== user.id && user.role !== 'admin') {
+    if (room.owner_id !== user.id && user.role !== 'admin' && user.role !== 'moderator') {
       return Response.json({ error: 'yetkisiz' }, { status: 403 });
     }
     const res = await base44.asServiceRole.entities.RoomMessage.deleteMany({ room_id });
