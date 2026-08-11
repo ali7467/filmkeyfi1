@@ -22,6 +22,8 @@ export default function AdminRoomMessages() {
   const [messages, setMessages] = useState([]);
   const [owner, setOwner] = useState(null);
   const [participantProfiles, setParticipantProfiles] = useState({});
+  const [roomOwners, setRoomOwners] = useState({});
+  const [msgProfiles, setMsgProfiles] = useState({});
   const [confirm, setConfirm] = useState(null);
   const [confirmAll, setConfirmAll] = useState(false);
   const [search, setSearch] = useState('');
@@ -31,12 +33,22 @@ export default function AdminRoomMessages() {
   const [menuMsg, setMenuMsg] = useState(null);
   const scrollRef = useRef(null);
 
-  useEffect(() => { base44.entities.Room.list(200).then(setRooms).catch(() => {}); }, []);
+  useEffect(() => { base44.entities.Room.list(200).then(async (rs) => {
+    setRooms(rs);
+    const oIds = [...new Set(rs.map((r) => r.owner_id).filter(Boolean))];
+    const ops = await Promise.all(oIds.map((id) => base44.functions.invoke('user-profile', { user_id: id }).catch(() => null)));
+    setRoomOwners(Object.fromEntries(oIds.map((id, i) => [id, ops[i]])));
+  }).catch(() => {}); }, []);
   useEffect(() => {
     if (!active) return;
     setOwner(null);
     base44.functions.invoke('user-profile', { user_id: active.owner_id }).then(setOwner).catch(() => {});
-    base44.entities.RoomMessage.filter({ room_id: active.id }, 'created_date', 500).then(setMessages).catch(() => {});
+    base44.entities.RoomMessage.filter({ room_id: active.id }, 'created_date', 500).then(async (ms) => {
+      setMessages(ms);
+      const uIds = [...new Set(ms.map((m) => m.user_id).filter(Boolean))];
+      const ps = await Promise.all(uIds.map((id) => base44.functions.invoke('user-profile', { user_id: id }).catch(() => null)));
+      setMsgProfiles(Object.fromEntries(uIds.map((id, i) => [id, ps[i]])));
+    }).catch(() => {});
     const pIds = [...new Set((active.participants || []).map((p) => p.user_id))];
     Promise.all(pIds.map((pid) => base44.functions.invoke('user-profile', { user_id: pid }).catch(() => null))).then((ps) => setParticipantProfiles(Object.fromEntries(pIds.map((pid, i) => [pid, ps[i]]))));
     setTab('messages');
@@ -98,10 +110,10 @@ export default function AdminRoomMessages() {
             {pagedRooms.map((r, idx) => (
               <button key={r.id} onClick={() => setActive(r)} className={`w-full text-left p-3 rounded-xl border transition-colors ${active?.id === r.id ? 'border-primary bg-primary/5' : 'border-border hover:border-border/80'}`}>
                 <div className="flex items-center gap-2.5">
-                  {r.owner_name ? <span className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-sm font-bold shrink-0">{r.owner_name[0]}</span> : <span className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center shrink-0"><Users className="w-4 h-4" /></span>}
+                  {roomOwners[r.owner_id]?.avatar ? <Image src={roomOwners[r.owner_id].avatar} className="w-9 h-9 rounded-full object-cover shrink-0" fittingType="fill" /> : <span className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-sm font-bold shrink-0">{(r.owner_name || '?')[0]}</span>}
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-sm truncate">{r.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{r.owner_name ? `${r.owner_name} (Oda Sahibi)` : 'Oda Sahibi yok'}</p>
+                    <p className="text-xs text-muted-foreground truncate flex items-center gap-1">{r.owner_name || 'Oda Sahibi yok'}{roomOwners[r.owner_id]?.member_id && <><span>·</span><span>#{roomOwners[r.owner_id].member_id}</span><span onClick={(e) => { e.stopPropagation(); navigator.clipboard?.writeText(roomOwners[r.owner_id].member_id); toast({ title: 'Üye No kopyalandı', description: `#${roomOwners[r.owner_id].member_id}` }); }} className="text-muted-foreground hover:text-primary shrink-0 cursor-pointer" title="Üye No kopyala"><Copy className="w-3 h-3" /></span></>}</p>
                   </div>
                 </div>
                 <div className="flex items-center justify-between mt-2">
@@ -200,12 +212,13 @@ export default function AdminRoomMessages() {
                           ) : (
                             <div key={m.id} className="flex gap-2.5 group relative">
                               <Link to={`/kullanici/${m.user_id}`} className="shrink-0">
-                                {m.user_avatar ? <Image src={m.user_avatar} className="w-8 h-8 rounded-full object-cover" fittingType="fill" /> : <span className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold">{(m.user_name || '?')[0]}</span>}
+                                {(m.user_avatar || msgProfiles[m.user_id]?.avatar) ? <Image src={m.user_avatar || msgProfiles[m.user_id]?.avatar} className="w-8 h-8 rounded-full object-cover" fittingType="fill" /> : <span className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold">{(m.user_name || '?')[0]}</span>}
                               </Link>
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <Link to={`/kullanici/${m.user_id}`} className="text-sm font-semibold text-primary hover:underline">{m.user_name}</Link>
                                   {m.user_id === active.owner_id && <Crown className="w-3 h-3 text-amber-400" />}
+                                  {msgProfiles[m.user_id]?.member_id && <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground"><span>#{msgProfiles[m.user_id].member_id}</span><button onClick={() => { navigator.clipboard?.writeText(msgProfiles[m.user_id].member_id); toast({ title: 'Üye No kopyalandı', description: `#${msgProfiles[m.user_id].member_id}` }); }} className="text-muted-foreground hover:text-primary shrink-0" title="Üye No kopyala"><Copy className="w-3 h-3" /></button></span>}
                                 </div>
                                 <p className="text-sm mt-0.5 break-words">{m.text}</p>
                               </div>
