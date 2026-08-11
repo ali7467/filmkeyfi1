@@ -41,6 +41,7 @@ import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import PendingApproval from '@/pages/PendingApproval';
+import SecurityProtocol from '@/pages/SecurityProtocol';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -89,6 +90,7 @@ const AuthenticatedApp = () => {
           <Route path="/bildirimler" element={<Notifications />} />
           <Route path="/profil" element={<Profile />} />
           <Route path="/kullanici/:id" element={<UserProfile />} />
+          <Route path="/güvenlik-protokolü" element={<SecurityProtocol />} />
         </Route>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
