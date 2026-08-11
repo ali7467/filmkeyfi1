@@ -14,6 +14,9 @@
     "member_id": {
       "type": "string"
     },
+    "title": {
+      "type": "string"
+    },
     "membership_status": {
       "type": "string",
       "enum": [
