@@ -4,7 +4,7 @@ import { Headset, Send, X, Loader2 } from "lucide-react";
 
 export default function SupportWidget() {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(() => localStorage.getItem("guest_name") || "");
   const [email, setEmail] = useState("");
   const [ticketId, setTicketId] = useState(() => localStorage.getItem("guest_ticket_id") || "");
   const [messages, setMessages] = useState([]);
@@ -15,10 +15,18 @@ export default function SupportWidget() {
 
   const needsInfo = !ticketId;
 
-  const poll = async () => {
-    if (!ticketId) return;
+  const poll = async (tid) => {
+    const id = tid || ticketId;
+    if (!id) return;
     try {
-      const res = await base44.functions.invoke("guest-support", { action: "poll", ticket_id: ticketId });
+      const res = await base44.functions.invoke("guest-support", { action: "poll", ticket_id: id });
+      // Admin sohbeti kapattıysa → kullanıcı tarafını sıfırla
+      if (res.ticket_status === "closed") {
+        localStorage.removeItem("guest_ticket_id");
+        setTicketId("");
+        setMessages([]);
+        return;
+      }
       setMessages(res.messages || []);
       setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     } catch {}
@@ -30,7 +38,7 @@ export default function SupportWidget() {
 
   useEffect(() => {
     if (!open || !ticketId) return;
-    const interval = setInterval(poll, 4000);
+    const interval = setInterval(() => poll(), 4000);
     return () => clearInterval(interval);
   }, [open, ticketId]);
 
@@ -39,17 +47,22 @@ export default function SupportWidget() {
     setError("");
     if (!name.trim() || !email.trim() || !text.trim()) return;
     setLoading(true);
+    const msgText = text.trim();
+    // Optimistic mesaj — kullanıcı mesajını anında görsün
+    setMessages([{ id: "temp-" + Date.now(), sender: "user", text: msgText }]);
     try {
       const res = await base44.functions.invoke("guest-support", {
-        action: "create", name: name.trim(), email: email.trim(), text: text.trim()
+        action: "create", name: name.trim(), email: email.trim(), text: msgText
       });
       localStorage.setItem("guest_ticket_id", res.ticket_id);
       localStorage.setItem("guest_name", name.trim());
       setTicketId(res.ticket_id);
       setText("");
-      poll();
+      // ticketId state henüz güncellenmedi → direkt ID ile poll et
+      poll(res.ticket_id);
     } catch (err) {
       setError("Mesaj gönderilemedi");
+      setMessages([]);
     } finally {
       setLoading(false);
     }

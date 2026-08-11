@@ -41,7 +41,12 @@ export default async function(req) {
     if (action === 'poll') {
       if (!ticket_id) return Response.json({ error: 'eksik bilgi' }, { status: 400 });
       const messages = await base44.asServiceRole.entities.SupportMessage.filter({ ticket_id }, 'created_date', 200);
-      return Response.json({ messages });
+      let ticket_status = 'active';
+      try {
+        const ticket = await base44.asServiceRole.entities.SupportTicket.get(ticket_id);
+        ticket_status = ticket?.status || 'active';
+      } catch {}
+      return Response.json({ messages, ticket_status });
     }
 
     return Response.json({ error: 'geçersiz işlem' }, { status: 400 });

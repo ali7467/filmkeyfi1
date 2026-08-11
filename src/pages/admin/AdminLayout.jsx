@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { LayoutDashboard, UserCheck, Users, Film, FolderTree, DoorOpen, MessageSquare, LifeBuoy, Package, CreditCard, RefreshCw, Bell, BarChart3, Settings, LogOut, Menu, X, ShieldAlert, KeyRound } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
+import { useAdminNotifications, requestNotificationPermission } from '@/hooks/useAdminNotifications';
 
 const nav = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -32,6 +33,9 @@ export default function AdminLayout() {
   const [twofaCode, setTwofaCode] = useState('');
   const [twofaErr, setTwofaErr] = useState('');
   const [verifying, setVerifying] = useState(false);
+  const [notifGranted, setNotifGranted] = useState(() => typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted');
+  useAdminNotifications();
+  const handleNotif = async () => { const r = await requestNotificationPermission(); setNotifGranted(r === 'granted'); };
 
   useEffect(() => {
     if (!loading && (!user || user.role !== 'admin')) navigate('/');
@@ -94,6 +98,10 @@ export default function AdminLayout() {
           onTouchEnd={(e) => { const dx = e.changedTouches[0].clientX - (touchX.current ?? 0); if (Math.abs(dx) > 55) setOpen((v) => !v); }}>
           <button onClick={() => setOpen(true)}><Menu className="w-6 h-6" /></button>
           <span className="ml-3 font-bold">Admin Panel</span>
+          <button onClick={handleNotif} className="ml-auto p-2 rounded-lg hover:bg-secondary relative shrink-0" title="Bildirimleri Aç">
+            <Bell className="w-5 h-5" />
+            {notifGranted && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-green-500" />}
+          </button>
         </header>
         <div className="p-4 sm:p-6">
           <Outlet />
