@@ -137,13 +137,14 @@ export default function WatchParty() {
 
   const toggleVoice = async () => {
     if (!canMod) { toast({ title: 'Yetkiniz yok', variant: 'destructive' }); return; }
-    await base44.entities.Room.update(id, { voice_enabled: !room.voice_enabled }).catch(() => {});
+    try { await base44.functions.invoke('room-presence', { action: 'toggle-voice', room_id: id }); toast({ title: room.voice_enabled ? 'Sesli sohbet kapatıldı' : 'Sesli sohbet açıldı' }); }
+    catch (e) { toast({ title: 'İşlem başarısız', description: e.response?.data?.error || e.message, variant: 'destructive' }); }
   };
 
   const toggleHidden = async () => {
     if (!canMod) return;
-    try { await base44.entities.Room.update(id, { hidden: !room.hidden }); toast({ title: room.hidden ? 'Oda artık görünür' : 'Oda gizlendi' }); }
-    catch (e) { toast({ title: 'İşlem başarısız', variant: 'destructive' }); }
+    try { await base44.functions.invoke('room-presence', { action: 'toggle-hidden', room_id: id }); toast({ title: room.hidden ? 'Oda artık görünür' : 'Oda gizlendi' }); }
+    catch (e) { toast({ title: 'İşlem başarısız', description: e.response?.data?.error || e.message, variant: 'destructive' }); }
   };
 
   const savePassword = async (override) => {
@@ -249,7 +250,7 @@ export default function WatchParty() {
             {canMod && showPwSet && (
               <div className="mt-2 flex gap-1.5">
                 <input value={pwSetInput} onChange={(e) => setPwSetInput(e.target.value)} type="password" placeholder="Yeni şifre (boş=kaldır)" className="flex-1 min-w-0 bg-secondary/60 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring" />
-                <button onClick={savePassword} className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold shrink-0">KAYDET</button>
+                <button onClick={() => savePassword()} className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold shrink-0">KAYDET</button>
               </div>
             )}
           </div>

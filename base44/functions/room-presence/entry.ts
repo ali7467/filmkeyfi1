@@ -13,7 +13,7 @@ export default async function(req) {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json();
     const { action, room_id, password, target_id } = body || {};
-    if (!room_id || !['join', 'leave', 'kick', 'set-password'].includes(action)) {
+    if (!room_id || !['join', 'leave', 'kick', 'set-password', 'toggle-hidden', 'toggle-voice'].includes(action)) {
       return Response.json({ error: 'invalid request' }, { status: 400 });
     }
     const name = user.username || user.full_name || 'Kullanıcı';
@@ -93,6 +93,18 @@ export default async function(req) {
       const hash = await sha256Hex(salt, password);
       await base44.asServiceRole.entities.Room.update(room_id, { password: `${salt}:${hash}` });
       return Response.json({ ok: true });
+    }
+
+    if (action === 'toggle-hidden') {
+      if (!isOwner && !isMod) return Response.json({ error: 'yetkisiz' }, { status: 403 });
+      await base44.asServiceRole.entities.Room.update(room_id, { hidden: !room.hidden });
+      return Response.json({ ok: true, hidden: !room.hidden });
+    }
+
+    if (action === 'toggle-voice') {
+      if (!isOwner && !isMod) return Response.json({ error: 'yetkisiz' }, { status: 403 });
+      await base44.asServiceRole.entities.Room.update(room_id, { voice_enabled: !room.voice_enabled });
+      return Response.json({ ok: true, voice_enabled: !room.voice_enabled });
     }
 
     // leave
