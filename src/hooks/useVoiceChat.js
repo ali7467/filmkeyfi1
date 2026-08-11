@@ -16,10 +16,9 @@ const ICE_SERVERS = {
  * Kararlı bağlantı için: ICE buffering, bağlantı durumu izleme,
  * otomatik yeniden bağlanma ve ayrılan katılımcı temizliği.
  */
-export function useVoiceChat({ roomId, user, participants, voiceEnabled, onSpeakingChange }) {
+export function useVoiceChat({ roomId, user, participants, voiceEnabled }) {
   const [muted, setMuted] = useState(false);
   const [remoteMuted, setRemoteMuted] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
   const [active, setActive] = useState(false);
   const [error, setError] = useState('');
   const localStreamRef = useRef(null);
@@ -28,16 +27,12 @@ export function useVoiceChat({ roomId, user, participants, voiceEnabled, onSpeak
   const initiatedRef = useRef(new Set());
   const mutedRef = useRef(false);
   const remoteMutedRef = useRef(false);
-  const audioCtxRef = useRef(null);
-  const rafRef = useRef(null);
   const participantsRef = useRef(participants);
   participantsRef.current = participants;
   const userRef = useRef(user);
   userRef.current = user;
   const roomIdRef = useRef(roomId);
   roomIdRef.current = roomId;
-  const onSpeakingRef = useRef(onSpeakingChange);
-  onSpeakingRef.current = onSpeakingChange;
 
   // --- Sinyal gönderme ---
   const sendSignal = useCallback((toId, type, data) => {
@@ -215,39 +210,15 @@ export function useVoiceChat({ roomId, user, participants, voiceEnabled, onSpeak
         if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
         localStreamRef.current = stream;
         setActive(true);
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        audioCtxRef.current = ctx;
-        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-        const srcNode = ctx.createMediaStreamSource(stream);
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
-        analyser.smoothingTimeConstant = 0.6;
-        srcNode.connect(analyser);
-        const buf = new Uint8Array(analyser.frequencyBinCount);
-        let speakingFrames = 0;
-        const tick = () => {
-          analyser.getByteFrequencyData(buf);
-          const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
-          const isSpeaking = avg > 18 && !mutedRef.current;
-          if (isSpeaking) speakingFrames++;
-          else speakingFrames = 0;
-          // En az 3 frame konuşma tespit edince aktif say (titreşımı azalt)
-          setSpeaking(speakingFrames > 2);
-          rafRef.current = requestAnimationFrame(tick);
-        };
-        tick();
         await connectToAll();
       })
       .catch((e) => setError(e?.message || 'Mikrofon izni reddedildi'));
     return () => {
       cancelled = true;
-      cancelAnimationFrame(rafRef.current);
-      audioCtxRef.current?.close().catch(() => {});
       Object.keys(peersRef.current).forEach((id) => closePeer(id));
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       localStreamRef.current = null;
       setActive(false);
-      setSpeaking(false);
       base44.entities.VoiceSignal.deleteMany({ room_id: roomId, from_id: user.id }).catch(() => {});
     };
   }, [voiceEnabled, roomId, user?.id, connectToAll, closePeer]);
@@ -266,9 +237,6 @@ export function useVoiceChat({ roomId, user, participants, voiceEnabled, onSpeak
     // Yeni katılımcılara bağlan
     connectToAll();
   }, [participantIdsKey, active, connectToAll, closePeer]);
-
-  // Speaking değişimi
-  useEffect(() => { onSpeakingRef.current?.(speaking); }, [speaking]);
 
   // Uzaktan susturma zorunluluğu — oda sahibi/admin susturduğunda mikrofonu gerçekten kapat
   useEffect(() => {
@@ -292,5 +260,5 @@ export function useVoiceChat({ roomId, user, participants, voiceEnabled, onSpeak
     localStreamRef.current?.getAudioTracks().forEach((t) => (t.enabled = !next));
   }, []);
 
-  return { muted, remoteMuted, speaking, active, error, toggleMute };
+  return { muted, remoteMuted, active, error, toggleMute };
 }

@@ -24,24 +24,33 @@ export default function AdminSupport() {
     setProfiles(Object.fromEntries(uIds.map((id, i) => [id, ps[i]])));
   }).catch(() => {}); };
   useEffect(load, []);
-  // Real-time subscription + polling fallback (service-role oluşturulan ticket'lar için)
+  // Gerçek zamanlı abonelik — polling yok
   useEffect(() => {
     const unsub = base44.entities.SupportTicket.subscribe((ev) => {
       if (ev.type === 'create') {
         setTickets((prev) => [ev.data, ...prev.filter((t) => t.id !== ev.data.id)]);
         setActive((cur) => cur || ev.data);
       }
+      if (ev.type === 'update') {
+        setTickets((prev) => prev.map((t) => t.id === ev.data.id ? { ...t, ...ev.data } : t));
+        setActive((cur) => cur?.id === ev.data.id ? { ...cur, ...ev.data } : cur);
+      }
+      if (ev.type === 'delete') {
+        setTickets((prev) => prev.filter((t) => t.id !== ev.data.id));
+        setActive((cur) => cur?.id === ev.data.id ? null : cur);
+      }
     });
-    const interval = setInterval(load, 5000);
-    return () => { unsub(); clearInterval(interval); };
+    return unsub;
   }, []);
   useEffect(() => {
     if (!active) return;
     const fetchMsgs = () => base44.entities.SupportMessage.filter({ ticket_id: active.id }, 'created_date', 200).then((m) => { setMessages(m); setTimeout(() => endRef.current?.scrollIntoView(), 50); }).catch(() => {});
     fetchMsgs();
-    const unsub = base44.entities.SupportMessage.subscribe((ev) => { if (ev.type === 'create' && ev.data?.ticket_id === active.id) { setMessages((p) => [...p, ev.data]); setTimeout(() => endRef.current?.scrollIntoView(), 50); } });
-    const interval = setInterval(fetchMsgs, 4000);
-    return () => { unsub(); clearInterval(interval); };
+    const unsub = base44.entities.SupportMessage.subscribe((ev) => {
+      if (ev.type === 'create' && ev.data?.ticket_id === active.id) { setMessages((p) => p.some((m) => m.id === ev.data.id) ? p : [...p, ev.data]); setTimeout(() => endRef.current?.scrollIntoView(), 50); }
+      if (ev.type === 'delete' && ev.data?.ticket_id === active.id) { setMessages((p) => p.filter((m) => m.id !== ev.data.id)); }
+    });
+    return unsub;
   }, [active?.id]);
 
   const send = (e) => {

@@ -141,16 +141,16 @@ export default function WatchParty() {
   const isMod = user?.role === 'admin' || user?.role === 'moderator';
   const canMod = isOwner || isMod;
 
-  const updateRoom = async (patch) => {
+  const updateRoom = async (patch, immediate = false) => {
     if (!isOwner) return;
-    if (Date.now() - lastUpdateRef.current < 700) return;
+    if (!immediate && Date.now() - lastUpdateRef.current < 2000) return;
     lastUpdateRef.current = Date.now();
     await base44.entities.Room.update(id, { ...patch, last_sync: new Date().toISOString() }).catch(() => {});
   };
 
-  const onPlayPause = (playing) => updateRoom({ is_playing: playing });
+  const onPlayPause = (playing) => updateRoom({ is_playing: playing }, true);
   const onTimeUpdate = (t) => updateRoom({ current_time: t });
-  const onSeek = (t) => updateRoom({ current_time: t, is_playing: true });
+  const onSeek = (t) => updateRoom({ current_time: t, is_playing: true }, true);
 
   const toggleVoice = async () => {
     if (!canMod) { toast({ title: 'Yetkiniz yok', variant: 'destructive' }); return; }
@@ -265,11 +265,10 @@ export default function WatchParty() {
                 const avatar = p.avatar || prof?.avatar;
                 return (
                   <div key={p.user_id} className="flex items-center gap-2 text-sm">
-                    <Link to={`/kullanici/${p.user_id}`} className={`shrink-0 transition-transform ${p.speaking ? 'speaking-glow scale-110' : ''}`}>
+                    <Link to={`/kullanici/${p.user_id}`} className="shrink-0">
                       {avatar ? <Image src={avatar} className="w-7 h-7 rounded-full object-cover" fittingType="fill" /> : <span className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold">{(p.name || '?')[0]}</span>}
                     </Link>
                     <Link to={`/kullanici/${p.user_id}`} className="flex-1 truncate hover:underline">{p.name}{p.user_id === room.owner_id && <Crown className="w-3 h-3 text-amber-400 inline ml-1" />}</Link>
-                    {p.speaking && <span className="text-[10px] text-green-400 font-semibold">🔊</span>}
                     {p.muted && <MicOff className="w-3.5 h-3.5 text-red-400 shrink-0" />}
                     {canMod && p.user_id !== user.id && room.voice_enabled && (
                       <button onClick={() => toggleMuteUser(p.user_id)} className={`p-1 rounded shrink-0 ${p.muted ? 'text-red-400' : 'text-green-400'}`} title={p.muted ? 'Mikrofonu aç' : 'Mikrofonu kapat'}>
@@ -313,12 +312,6 @@ export default function WatchParty() {
             {voice.muted || voice.remoteMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />} {voice.remoteMuted ? 'SUSTURULDUNUZ' : voice.muted ? 'SUSTURULDU' : 'KONUŞUYOR'}
           </button>
           <span className="text-xs text-muted-foreground">{voice.active ? 'Bağlı' : 'Bağlanıyor...'}</span>
-          {(room.participants || []).filter((p) => p.speaking).map((p) => (
-            <Link key={p.user_id} to={`/kullanici/${p.user_id}`} className="inline-flex items-center gap-1.5 bg-green-500/15 text-green-400 px-2 py-1 rounded-full text-xs font-medium hover:bg-green-500/25">
-              <span className="w-5 h-5 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-[10px] font-bold speaking-glow">{(p.name || '?')[0]}</span>
-              {p.name} konuşuyor
-            </Link>
-          ))}
         </div>
       )}
 
