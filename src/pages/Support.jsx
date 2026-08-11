@@ -28,14 +28,31 @@ export default function Support() {
 
   useEffect(() => {
     if (!active) return;
-    base44.entities.SupportMessage.filter({ ticket_id: active.id }, 'created_date', 200).then((m) => { setMessages(m); setTimeout(() => endRef.current?.scrollIntoView(), 50); }).catch(() => {});
+    const fetchMsgs = () => base44.entities.SupportMessage.filter({ ticket_id: active.id }, 'created_date', 200).then((m) => {
+      setMessages(m); setTimeout(() => endRef.current?.scrollIntoView(), 50);
+    }).catch(() => {});
+    fetchMsgs();
     const unsub = base44.entities.SupportMessage.subscribe((ev) => {
       if (ev.type === 'create' && ev.data?.ticket_id === active.id) {
         setMessages((p) => p.some((m) => m.id === ev.data.id) ? p : [...p, ev.data]);
         setTimeout(() => endRef.current?.scrollIntoView(), 50);
       }
+      if (ev.type === 'delete' && ev.data?.ticket_id === active.id) {
+        setMessages((p) => p.filter((m) => m.id !== ev.data.id));
+      }
     });
-    return unsub;
+    // Admin kapatma/silme işlemlerini yakalamak için polling
+    const interval = setInterval(() => {
+      base44.entities.SupportTicket.get(active.id).then((t) => {
+        if (t?.status === 'closed') {
+          setMessages([]);
+          setActive(null);
+          load();
+        }
+      }).catch(() => {});
+      fetchMsgs();
+    }, 4000);
+    return () => { unsub(); clearInterval(interval); };
   }, [active?.id]);
 
   const create = async (e) => {
