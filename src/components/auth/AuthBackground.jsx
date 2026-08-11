@@ -9,11 +9,11 @@ export default function AuthBackground({ children }) {
         alt=""
         className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
       />
-      {/* Karartma katmanı — görseli belirgin bırak, sadece alt kısımı karart */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/30 via-[#0a0a0a]/50 to-[#0a0a0a]/85 pointer-events-none" />
+      {/* Karartma katmanı — üst kısım hafif karartma, alt kısım tamamen açık */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a]/40 via-[#0a0a0a]/15 to-transparent pointer-events-none" />
 
       {/* İçerik */}
-      <div className="relative z-10 w-full max-w-md">{children}</div>
+      <div className="relative z-10 w-full max-w-sm">{children}</div>
     </div>
   );
 }
