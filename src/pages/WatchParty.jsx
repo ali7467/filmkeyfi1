@@ -272,6 +272,15 @@ export default function WatchParty() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={showPwRemoveConfirm}
+        onOpenChange={setShowPwRemoveConfirm}
+        title="Şifre kaldırılsın mı?"
+        description="Oda şifresini kaldırırsanız oda herkese açık hale gelir."
+        confirmText="Kaldır"
+        onConfirm={() => savePassword('')}
+      />
     </div>
   );
 }

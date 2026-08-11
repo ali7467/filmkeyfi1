@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
 import { Image } from '@/components/ui/image';
-import { User, Crown, Clock, Heart, List, Settings, RefreshCw, Camera, LogOut } from 'lucide-react';
+import { User, Crown, Clock, Heart, List, Settings, RefreshCw, Camera, LogOut, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Profile() {
@@ -53,6 +53,14 @@ export default function Profile() {
     const file = e.target.files?.[0]; if (!file) return;
     try { const { file_url } = await base44.integrations.Core.UploadFile({ file }); setForm((f) => ({ ...f, avatar: file_url })); }
     catch (err) { toast({ title: 'Yükleme hatası', variant: 'destructive' }); }
+  };
+
+  const clearHistory = async () => {
+    try {
+      await base44.entities.WatchHistory.deleteMany({ user_id: user.id });
+      setHistory([]); setHistoryMovies([]);
+      toast({ title: 'İzleme geçmişi temizlendi' });
+    } catch (err) { toast({ title: 'Hata', description: err.message, variant: 'destructive' }); }
   };
 
   const renew = async () => {
@@ -140,7 +148,14 @@ export default function Profile() {
           )}
         </div>
       )}
-      {tab === 'history' && <MovieGrid movies={historyMovies} empty="Henüz bir şey izlemediniz." />}
+      {tab === 'history' && (
+        <div>
+          {historyMovies.length > 0 && (
+            <button onClick={clearHistory} className="mb-3 bg-destructive text-destructive-foreground px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5"><Trash2 className="w-4 h-4" /> Tümünü Sil</button>
+          )}
+          <MovieGrid movies={historyMovies} empty="Henüz bir şey izlemediniz." />
+        </div>
+      )}
       {tab === 'list' && <MovieGrid movies={list} empty="Henüz listenize film eklemediniz." />}
       {tab === 'favs' && <MovieGrid movies={favs} empty="Henüz favori yok." />}
     </div>
