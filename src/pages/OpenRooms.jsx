@@ -7,7 +7,16 @@ import { Image } from '@/components/ui/image';
 export default function OpenRooms() {
   const [rooms, setRooms] = useState([]);
   const [movies, setMovies] = useState({});
+  const [owners, setOwners] = useState({});
   const [loading, setLoading] = useState(true);
+
+  const fetchOwners = async (rs) => {
+    const ids = [...new Set(rs.map((r) => r.owner_id).filter(Boolean))];
+    const profiles = await Promise.all(ids.map((uid) => base44.functions.invoke('user-profile', { user_id: uid }).catch(() => null)));
+    const map = {};
+    profiles.forEach((p, i) => { if (p) map[ids[i]] = p; });
+    setOwners((prev) => ({ ...prev, ...map }));
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -16,14 +25,19 @@ export default function OpenRooms() {
           base44.entities.Room.filter({ status: 'active' }, '-created_date', 200).catch(() => []),
           base44.entities.Movie.list(500).catch(() => []),
         ]);
-        setRooms(r.filter((x) => !x.hidden && (x.participants?.length || 0) > 0));
+        const visible = r.filter((x) => !x.hidden && (x.participants?.length || 0) > 0);
+        setRooms(visible);
         const map = {}; m.forEach((mv) => { map[mv.id] = mv; });
         setMovies(map);
+        fetchOwners(visible);
       } finally { setLoading(false); }
     };
     load();
     const unsub = base44.entities.Room.subscribe((ev) => {
-      if (ev.type === 'create' && ev.data?.status === 'active' && !ev.data.hidden && (ev.data.participants?.length || 0) > 0) setRooms((p) => [ev.data, ...p.filter((x) => x.id !== ev.data.id)]);
+      if (ev.type === 'create' && ev.data?.status === 'active' && !ev.data.hidden && (ev.data.participants?.length || 0) > 0) {
+        setRooms((p) => [ev.data, ...p.filter((x) => x.id !== ev.data.id)]);
+        fetchOwners([ev.data]);
+      }
       if (ev.type === 'update') setRooms((p) => p.map((x) => (x.id === ev.data.id ? ev.data : x)).filter((x) => x.status === 'active' && !x.hidden && (x.participants?.length || 0) > 0));
       if (ev.type === 'delete') setRooms((p) => p.filter((x) => x.id !== ev.id));
     });
@@ -56,7 +70,16 @@ export default function OpenRooms() {
                    <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1"><Users className="w-3 h-3" /> {r.participants?.length || 0}/{r.max_users}</div>
                  </div>
                  <p className="mt-2 text-sm font-semibold text-center truncate max-w-full">{r.name}</p>
-                 <p className="text-xs text-muted-foreground truncate max-w-full mb-2">{r.movie_title || mv?.title || 'İçerik'}</p>
+                 <p className="text-xs text-muted-foreground truncate max-w-full mb-1">{r.movie_title || mv?.title || 'İçerik'}</p>
+                 {(() => {
+                   const o = owners[r.owner_id];
+                   return (
+                     <Link to={`/kullanici/${r.owner_id}`} className="flex items-center justify-center gap-1.5 mb-2 group">
+                       {o?.avatar ? <img src={o.avatar} className="w-5 h-5 rounded-full object-cover" alt="" /> : <span className="w-5 h-5 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-[10px] font-bold">{(r.owner_name || '?')[0]}</span>}
+                       <span className="text-xs text-muted-foreground group-hover:text-foreground truncate max-w-full">{r.owner_name || o?.username || 'Kullanıcı'}{r.owner_name ? ' odası' : ''}</span>
+                     </Link>
+                   );
+                 })()}
                  <Link to={`/oda/${r.id}`} className="bg-primary text-primary-foreground text-sm font-semibold px-5 py-1.5 rounded-full hover:bg-primary/90">Katıl</Link>
                </div>
              );

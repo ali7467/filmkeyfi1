@@ -13,7 +13,7 @@ export default async function(req) {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json();
     const { action, room_id, password, target_id } = body || {};
-    if (!room_id || !['join', 'leave', 'kick'].includes(action)) {
+    if (!room_id || !['join', 'leave', 'kick', 'set-password'].includes(action)) {
       return Response.json({ error: 'invalid request' }, { status: 400 });
     }
     const name = user.username || user.full_name || 'Kullanıcı';
@@ -76,6 +76,18 @@ export default async function(req) {
         room_id, user_id: target_id, user_name: targetName,
         text: `${targetName} odadan atıldı.`, type: 'system'
       });
+      return Response.json({ ok: true });
+    }
+
+    if (action === 'set-password') {
+      if (!isOwner && !isAdmin) return Response.json({ error: 'yetkisiz' }, { status: 403 });
+      if (!password) {
+        await base44.asServiceRole.entities.Room.update(room_id, { password: '' });
+        return Response.json({ ok: true });
+      }
+      const salt = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
+      const hash = await sha256Hex(salt, password);
+      await base44.asServiceRole.entities.Room.update(room_id, { password: `${salt}:${hash}` });
       return Response.json({ ok: true });
     }
 

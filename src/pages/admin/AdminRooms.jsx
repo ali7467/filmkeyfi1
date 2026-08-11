@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
@@ -8,6 +9,7 @@ import { Trash2, DoorClosed, MessageSquareOff, MicOff, UserMinus, Users, Crown }
 export default function AdminRooms() {
   const { user: admin } = useCurrentUser();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState(null);
@@ -44,6 +46,7 @@ export default function AdminRooms() {
                 <span>{r.voice_enabled ? '🎙️ Sesli açık' : '🔇 Sesli kapalı'}</span>
               </div>
               <div className="flex flex-wrap gap-1">
+                {r.status === 'active' && <button onClick={() => navigate(`/oda/${r.id}`)} className="px-2.5 py-1.5 rounded bg-primary text-primary-foreground text-xs inline-flex items-center gap-1 font-semibold" title="Odaya Katıl"><DoorClosed className="w-3.5 h-3.5" /> Katıl</button>}
                 <button onClick={() => toggleChat(r)} className="px-2.5 py-1.5 rounded bg-secondary text-xs inline-flex items-center gap-1" title="Sohbet"><MessageSquareOff className="w-3.5 h-3.5" /> Sohbet</button>
                 <button onClick={() => toggleVoice(r)} className="px-2.5 py-1.5 rounded bg-secondary text-xs inline-flex items-center gap-1" title="Ses"><MicOff className="w-3.5 h-3.5" /> Ses</button>
                 {r.status === 'active' && <button onClick={() => close(r)} className="px-2.5 py-1.5 rounded bg-amber-500/20 text-amber-400 text-xs inline-flex items-center gap-1" title="Kapat"><DoorClosed className="w-3.5 h-3.5" /> Kapat</button>}

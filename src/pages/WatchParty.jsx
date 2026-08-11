@@ -6,7 +6,7 @@ import ChatOverlay from '@/components/player/ChatOverlay';
 import { useVoiceChat } from '@/hooks/useVoiceChat';
 import { useCurrentUser, membershipActive } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
-import { Mic, MicOff, AlertCircle, Crown, X } from 'lucide-react';
+import { Mic, MicOff, AlertCircle, Crown, X, MessageSquare, Eye, EyeOff, Lock, Unlock } from 'lucide-react';
 
 export default function WatchParty() {
   const { id } = useParams();
@@ -20,9 +20,12 @@ export default function WatchParty() {
   const [showViewers, setShowViewers] = useState(false);
   const [needPassword, setNeedPassword] = useState(false);
   const [pwInput, setPwInput] = useState('');
+  const [pwSetInput, setPwSetInput] = useState('');
+  const [showPwSet, setShowPwSet] = useState(false);
   const [syncState, setSyncState] = useState({ is_playing: false, current_time: 0, last_sync: null });
   const [unread, setUnread] = useState(0);
   const joinedRef = useRef(false);
+  const ghostRef = useRef(false);
   const kickedRef = useRef(false);
   const lastUpdateRef = useRef(0);
   const playerWrapRef = useRef(null);
@@ -54,12 +57,14 @@ export default function WatchParty() {
 
   useEffect(() => {
     if (!user || !room || joinedRef.current) return;
-    if (room.password && room.owner_id !== user.id && !room.participants?.some((p) => p.user_id === user.id)) {
+    if (room.password && room.owner_id !== user.id && user.role !== 'admin' && !room.participants?.some((p) => p.user_id === user.id)) {
       setNeedPassword(true);
       return;
     }
     joinedRef.current = true;
-    base44.functions.invoke('room-presence', { action: 'join', room_id: id }).catch((e) => toast({ title: 'Katılım başarısız', description: e.response?.data?.error || e.message, variant: 'destructive' }));
+    base44.functions.invoke('room-presence', { action: 'join', room_id: id })
+      .then((res) => { if (res?.ghost) ghostRef.current = true; })
+      .catch((e) => toast({ title: 'Katılım başarısız', description: e.response?.data?.error || e.message, variant: 'destructive' }));
   }, [user?.id, room?.id]);
 
   const submitPassword = async () => {
@@ -92,7 +97,7 @@ export default function WatchParty() {
 
   // Atılma tespiti: katılımcı listesinden çıkarıldıysa yönlendir
   useEffect(() => {
-    if (!user || !joinedRef.current || !room || room.owner_id === user.id || user.role === 'admin') return;
+    if (!user || !joinedRef.current || !room || room.owner_id === user.id || user.role === 'admin' || ghostRef.current) return;
     const stillIn = (room.participants || []).some((p) => p.user_id === user.id);
     if (!stillIn) {
       kickedRef.current = true;
@@ -114,6 +119,8 @@ export default function WatchParty() {
   }, []);
 
   const isOwner = user?.id === room?.owner_id;
+  const isAdmin = user?.role === 'admin';
+  const canMod = isOwner || isAdmin;
 
   const updateRoom = async (patch) => {
     if (!isOwner) return;
@@ -127,24 +134,28 @@ export default function WatchParty() {
   const onSeek = (t) => updateRoom({ current_time: t, is_playing: true });
 
   const toggleVoice = async () => {
-    if (!isOwner) { toast({ title: 'Sesli sohbeti sadece oda sahibi açabilir', variant: 'destructive' }); return; }
+    if (!canMod) { toast({ title: 'Yetkiniz yok', variant: 'destructive' }); return; }
     await base44.entities.Room.update(id, { voice_enabled: !room.voice_enabled }).catch(() => {});
   };
 
   const toggleHidden = async () => {
-    if (!isOwner) return;
+    if (!canMod) return;
     try { await base44.entities.Room.update(id, { hidden: !room.hidden }); toast({ title: room.hidden ? 'Oda artık görünür' : 'Oda gizlendi' }); }
     catch (e) { toast({ title: 'İşlem başarısız', variant: 'destructive' }); }
   };
 
-  const removePassword = async () => {
-    if (!isOwner) return;
-    try { await base44.entities.Room.update(id, { password: '' }); toast({ title: 'Oda şifresi kaldırıldı' }); }
-    catch (e) { toast({ title: 'İşlem başarısız', variant: 'destructive' }); }
+  const savePassword = async (override) => {
+    if (!canMod) return;
+    const pw = (override !== undefined ? override : pwSetInput).trim();
+    try {
+      await base44.functions.invoke('room-presence', { action: 'set-password', room_id: id, password: pw });
+      toast({ title: pw ? 'Oda şifresi güncellendi' : 'Oda şifresi kaldırıldı' });
+      setShowPwSet(false); setPwSetInput('');
+    } catch (e) { toast({ title: 'İşlem başarısız', description: e.response?.data?.error || e.message, variant: 'destructive' }); }
   };
 
   const removeUser = async (uid) => {
-    if (!isOwner) return;
+    if (!canMod) return;
     try { await base44.functions.invoke('room-presence', { action: 'kick', room_id: id, target_id: uid }); toast({ title: 'Kullanıcı odadan çıkarıldı' }); }
     catch (e) { toast({ title: 'Çıkarılamadı', description: e.response?.data?.error || e.message, variant: 'destructive' }); }
     setShowViewers(false);
@@ -192,9 +203,7 @@ export default function WatchParty() {
         <button onClick={handleBack} className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-semibold shrink-0">GERİ</button>
         <h1 className="flex-1 min-w-0 text-center font-bold truncate px-2 text-sm sm:text-base">{room.name}</h1>
         <button onClick={() => setShowViewers(!showViewers)} className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-semibold shrink-0">İZLEYİCİ {room.participants?.length || 0}</button>
-        {isOwner && <button onClick={toggleHidden} className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-semibold shrink-0">{room.hidden ? 'GÖSTER' : 'GİZLE'}</button>}
-        {isOwner && !!room.password && <button onClick={removePassword} className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-semibold shrink-0">ŞİFRE KALDIR</button>}
-        <button onClick={() => setChatOpen(!chatOpen)} className={`relative px-3 py-1.5 rounded-lg text-sm font-semibold shrink-0 ${chatOpen ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>SOHBET
+        <button onClick={() => setChatOpen(!chatOpen)} className={`relative p-2 rounded-lg shrink-0 ${chatOpen ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`} title="Sohbet"><MessageSquare className="w-5 h-5" />
           {!chatOpen && unread > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>}
         </button>
       </div>
@@ -208,7 +217,7 @@ export default function WatchParty() {
 
         {chatOpen && (
           <div className="w-[300px] max-w-[42%] min-h-0 border-l border-border bg-card flex flex-col shrink-0">
-            <ChatOverlay roomId={id} chatEnabled={chatEnabled} isOwner={isOwner} onClose={() => setChatOpen(false)} />
+            <ChatOverlay roomId={id} chatEnabled={chatEnabled} isOwner={canMod} onClose={() => setChatOpen(false)} />
           </div>
         )}
 
@@ -224,11 +233,23 @@ export default function WatchParty() {
                   <Link to={`/kullanici/${p.user_id}`} className={`w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold shrink-0 ${p.speaking ? 'ring-2 ring-green-400 animate-pulse' : ''}`}>{(p.name || '?')[0]}</Link>
                   <Link to={`/kullanici/${p.user_id}`} className="flex-1 truncate hover:underline">{p.name}{p.user_id === room.owner_id && <Crown className="w-3 h-3 text-amber-400 inline ml-1" />}</Link>
                   {p.speaking && <span className="text-[10px] text-green-400 font-semibold">🔊</span>}
-                  {isOwner && p.user_id !== user.id && <button onClick={() => removeUser(p.user_id)} className="text-xs text-destructive">Çıkar</button>}
+                  {canMod && p.user_id !== user.id && <button onClick={() => removeUser(p.user_id)} className="text-xs text-destructive">Çıkar</button>}
                 </div>
               ))}
             </div>
             <button onClick={toggleVoice} className={`w-full mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold ${room.voice_enabled ? 'bg-accent text-accent-foreground' : 'bg-secondary'}`}>{room.voice_enabled ? 'SESLİ KAPAT' : 'SESLİ AÇ'}</button>
+            {canMod && (
+              <div className="flex gap-1.5 mt-2">
+                <button onClick={toggleHidden} className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-secondary text-xs font-semibold" title="Gizle/Göster">{room.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}{room.hidden ? 'GÖSTER' : 'GİZLE'}</button>
+                <button onClick={() => { if (room.password) savePassword(''); else { setShowPwSet(!showPwSet); setPwSetInput(''); } }} className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-secondary text-xs font-semibold" title="Şifre">{room.password ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}{room.password ? 'ŞİFRE KALDIR' : 'ŞİFRE KOY'}</button>
+              </div>
+            )}
+            {canMod && showPwSet && (
+              <div className="mt-2 flex gap-1.5">
+                <input value={pwSetInput} onChange={(e) => setPwSetInput(e.target.value)} type="password" placeholder="Yeni şifre (boş=kaldır)" className="flex-1 min-w-0 bg-secondary/60 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring" />
+                <button onClick={savePassword} className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold shrink-0">KAYDET</button>
+              </div>
+            )}
           </div>
         )}
       </div>
