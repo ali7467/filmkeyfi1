@@ -92,7 +92,8 @@ export default function Profile() {
           {editing && <label className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center cursor-pointer"><Camera className="w-4 h-4" /><input type="file" accept="image/*" className="hidden" onChange={onAvatar} /></label>}
         </div>
         <div className="flex-1 text-center sm:text-left">
-          <h1 className="text-2xl font-extrabold flex items-center gap-2 justify-center sm:justify-start">{user.username || user.full_name} {user.role === 'admin' && <Crown className="w-5 h-5 text-amber-400" />}</h1>
+          <h1 className="text-2xl font-extrabold flex items-center gap-2 justify-center sm:justify-start">{user.title || user.username || user.full_name} {(user.role === 'admin' || user.role === 'moderator') && <Crown className="w-5 h-5 text-amber-400" />}</h1>
+          {user.title && <p className="text-base font-semibold text-gradient">{user.title}</p>}
           <p className="text-sm text-muted-foreground">{user.email}</p>
           <div className="flex flex-wrap gap-2 mt-2 justify-center sm:justify-start">
             <span className={`text-xs px-2 py-1 rounded ${user.role === 'admin' ? 'bg-amber-500/20 text-amber-400' : user.membership_status === 'active' && !expired ? 'bg-green-500/20 text-green-400' : 'bg-destructive/20 text-destructive'}`}>

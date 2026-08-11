@@ -16,6 +16,7 @@ export default async function(req) {
       avatar: u.avatar || '',
       member_id: u.member_id || '-',
       role: u.role || '',
+      title: u.title || '',
       created_date: u.created_date || null
     });
   } catch (e) {
