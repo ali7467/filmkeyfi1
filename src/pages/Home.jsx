@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import Hero from '@/components/movie/Hero';
 import ContentRow from '@/components/movie/ContentRow';
 import { SkeletonRow } from '@/components/movie/EmptyState';
-import DownloadButtons from '@/components/DownloadButtons';
+
 
 export default function Home() {
   const [featured, setFeatured] = useState(null);
@@ -53,14 +53,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* Mobil indirme bölümü */}
-      <div className="mt-10 mb-6 px-4">
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-xl font-extrabold mb-1">Telefonuna İndir</h2>
-          <p className="text-sm text-muted-foreground mb-4">FILMKEYFİ'ni ana ekranına ekle, her zaman bir tıkla ulaş.</p>
-          <DownloadButtons variant="dark" />
-        </div>
-      </div>
     </div>
   );
 }
