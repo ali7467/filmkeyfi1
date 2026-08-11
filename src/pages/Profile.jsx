@@ -42,9 +42,9 @@ export default function Profile() {
 
   const save = async () => {
     try {
-      const updates = { username: form.username, phone: form.phone, avatar: form.avatar };
-      if (user.role !== 'moderator') updates.full_name = form.full_name;
-      await base44.auth.updateMe(updates);
+      await base44.functions.invoke('update-profile', {
+        username: form.username, phone: form.phone, avatar: form.avatar, full_name: form.full_name
+      });
       await reload();
       setEditing(false);
       toast({ title: 'Profil güncellendi' });
