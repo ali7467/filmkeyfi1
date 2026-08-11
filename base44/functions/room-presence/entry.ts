@@ -138,15 +138,34 @@ export default async function(req) {
     }
     let owner_id = room.owner_id;
     let owner_name = room.owner_name;
-    if (isOwner && participants.length > 0) {
+    const ownershipTransferred = isOwner && participants.length > 0;
+    if (ownershipTransferred) {
       owner_id = participants[0].user_id;
       owner_name = participants[0].name;
     }
-    await base44.asServiceRole.entities.Room.update(room_id, { participants, owner_id, owner_name });
+    await base44.asServiceRole.entities.Room.update(room_id, {
+      participants, owner_id, owner_name,
+      // Oynatma durumunu koru — yeni sahip kesintisiz devam etsin
+      is_playing: ownershipTransferred ? room.is_playing : (participants.length === 0 ? false : room.is_playing),
+      last_sync: new Date().toISOString()
+    });
     await base44.asServiceRole.entities.RoomMessage.create({
       room_id, user_id: user.id, user_name: name,
       text: `${name} odadan ayrıldı.`, type: 'system'
     });
+    if (ownershipTransferred) {
+      await base44.asServiceRole.entities.RoomMessage.create({
+        room_id, user_id: owner_id, user_name: owner_name,
+        text: `${owner_name} yeni oda sahibi oldu.`, type: 'system'
+      });
+      await base44.asServiceRole.entities.Notification.create({
+        user_id: owner_id,
+        title: 'Oda sahipliği size devredildi',
+        body: `${room.name} odasının yeni sahibi sizsiniz.`,
+        type: 'room',
+        link: `/oda/${room_id}`
+      }).catch(() => {});
+    }
     return Response.json({ ok: true });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });

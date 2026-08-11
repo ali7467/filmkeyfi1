@@ -43,27 +43,44 @@ export default function VideoPlayer({ src, title, onTimeUpdate, onPlayPause, onS
     if (onSeek) onSeek(v.currentTime);
   };
 
-  // Sync from owner (watch party) — only significant drift triggers seek
+  // Sync from owner (watch party) — drift düzeltmeli senkronizasyon
   useEffect(() => {
     if (!syncState || isOwner) return;
     const v = videoRef.current; if (!v) return;
     const target = syncState.current_time || 0;
-    const diff = Math.abs(v.currentTime - target);
-    if (diff > 5) { seekTo(target); }
+    const diff = v.currentTime - target;
+    const absDiff = Math.abs(diff);
+
+    if (absDiff > 3) {
+      // Büyük sapma — doğrudan seek
+      seekTo(target);
+      v.playbackRate = speed;
+    } else if (absDiff > 1) {
+      // Orta sapma — hız微 düzeltme (catch-up / slow-down)
+      if (diff > 0) v.playbackRate = Math.max(0.5, speed - 0.25);
+      else v.playbackRate = Math.min(2, speed + 0.25);
+      // 2 saniye sonra normale dön
+      clearTimeout(v._syncResetTimer);
+      v._syncResetTimer = setTimeout(() => { if (v) v.playbackRate = speed; }, 2000);
+    } else {
+      // Yakın senkron — normal hız
+      v.playbackRate = speed;
+    }
+
     if (syncState.is_playing && v.paused) v.play().catch(() => {});
     if (!syncState.is_playing && !v.paused) v.pause();
   }, [syncState?.current_time, syncState?.is_playing, syncState?.last_sync]);
 
-  // report time to owner
+  // report time to owner — daha sık ve kararlı
   useEffect(() => {
     if (!isOwner || !onTimeUpdate) return;
     const id = setInterval(() => {
       const v = videoRef.current;
-      if (v && !v.paused && Date.now() - lastSyncRef.current > 3000) {
+      if (v && !v.paused && Date.now() - lastSyncRef.current > 2000) {
         onTimeUpdate(v.currentTime);
         lastSyncRef.current = Date.now();
       }
-    }, 4000);
+    }, 2500);
     return () => clearInterval(id);
   }, [isOwner, onTimeUpdate]);
 
