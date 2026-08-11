@@ -1,28 +1,26 @@
 import { useEffect, useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
 import { Image } from '@/components/ui/image';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-import UserBadge from '@/components/admin/UserBadge';
-import { Trash2, Search, Send, Users, Crown, ChevronLeft, ChevronRight, Download, Copy, MoreVertical, Calendar, Hash, UserCircle, Shield } from 'lucide-react';
+import RoomMessagePanel from '@/components/admin/RoomMessagePanel';
+import { Search, ChevronLeft, ChevronRight, Users, MessageSquare } from 'lucide-react';
 
 const PAGE_SIZE = 8;
-
-function roomNumber(r, idx, page) {
-  return '#' + (1000 + (idx + 1 + (page - 1) * PAGE_SIZE));
-}
 
 export default function AdminRoomMessages() {
   const { user: admin } = useCurrentUser();
   const { toast } = useToast();
   const [rooms, setRooms] = useState([]);
+  const [roomOwners, setRoomOwners] = useState({});
+  const [roomMsgCounts, setRoomMsgCounts] = useState({});
+  const [unread, setUnread] = useState({});
   const [active, setActive] = useState(null);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [owner, setOwner] = useState(null);
   const [participantProfiles, setParticipantProfiles] = useState({});
-  const [roomOwners, setRoomOwners] = useState({});
   const [msgProfiles, setMsgProfiles] = useState({});
   const [confirm, setConfirm] = useState(null);
   const [confirmAll, setConfirmAll] = useState(false);
@@ -31,17 +29,59 @@ export default function AdminRoomMessages() {
   const [page, setPage] = useState(1);
   const [input, setInput] = useState('');
   const [menuMsg, setMenuMsg] = useState(null);
-  const scrollRef = useRef(null);
+  const desktopScrollRef = useRef(null);
+  const mobileScrollRef = useRef(null);
+  const activeRef = useRef(null);
+  activeRef.current = active;
+  const msgProfilesRef = useRef({});
+  msgProfilesRef.current = msgProfiles;
 
-  useEffect(() => { base44.entities.Room.list(200).then(async (rs) => {
-    setRooms(rs);
-    const oIds = [...new Set(rs.map((r) => r.owner_id).filter(Boolean))];
-    const ops = await Promise.all(oIds.map((id) => base44.functions.invoke('user-profile', { user_id: id }).catch(() => null)));
-    setRoomOwners(Object.fromEntries(oIds.map((id, i) => [id, ops[i]])));
-  }).catch(() => {}); }, []);
+  // Load rooms + owners + message counts
+  useEffect(() => {
+    base44.entities.Room.list(200).then(async (rs) => {
+      setRooms(rs);
+      const oIds = [...new Set(rs.map((r) => r.owner_id).filter(Boolean))];
+      const ops = await Promise.all(oIds.map((id) => base44.functions.invoke('user-profile', { user_id: id }).catch(() => null)));
+      setRoomOwners(Object.fromEntries(oIds.map((id, i) => [id, ops[i]])));
+    }).catch(() => {});
+
+    // Load message counts (tek sorgu, sayım için)
+    base44.entities.RoomMessage.list('-created_date', 500).then((msgs) => {
+      const counts = {};
+      msgs.forEach((m) => { counts[m.room_id] = (counts[m.room_id] || 0) + 1; });
+      setRoomMsgCounts(counts);
+    }).catch(() => {});
+  }, []);
+
+  // Subscribe to new messages — unread tracking + active room updates
+  useEffect(() => {
+    const unsub = base44.entities.RoomMessage.subscribe((ev) => {
+      if (ev.type === 'create') {
+        const msg = ev.data;
+        setRoomMsgCounts((prev) => ({ ...prev, [msg.room_id]: (prev[msg.room_id] || 0) + 1 }));
+        if (activeRef.current?.id === msg.room_id) {
+          setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
+          if (msg.user_id && !msgProfilesRef.current[msg.user_id]) {
+            base44.functions.invoke('user-profile', { user_id: msg.user_id }).then((p) => setMsgProfiles((prev) => ({ ...prev, [msg.user_id]: p }))).catch(() => {});
+          }
+        } else {
+          setUnread((prev) => ({ ...prev, [msg.room_id]: (prev[msg.room_id] || 0) + 1 }));
+        }
+      }
+      if (ev.type === 'delete') {
+        const msg = ev.data;
+        setRoomMsgCounts((prev) => ({ ...prev, [msg.room_id]: Math.max(0, (prev[msg.room_id] || 0) - 1) }));
+        setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+      }
+    });
+    return unsub;
+  }, []);
+
+  // Load messages when active room changes
   useEffect(() => {
     if (!active) return;
     setOwner(null);
+    setMessages([]);
     base44.functions.invoke('user-profile', { user_id: active.owner_id }).then(setOwner).catch(() => {});
     base44.entities.RoomMessage.filter({ room_id: active.id }, 'created_date', 500).then(async (ms) => {
       setMessages(ms);
@@ -54,21 +94,67 @@ export default function AdminRoomMessages() {
     setTab('messages');
   }, [active?.id]);
 
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages]);
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    if (desktopScrollRef.current) desktopScrollRef.current.scrollTop = desktopScrollRef.current.scrollHeight;
+    if (mobileScrollRef.current) mobileScrollRef.current.scrollTop = mobileScrollRef.current.scrollHeight;
+  }, [messages]);
+
+  // Stable room number map
+  const roomNoMap = {};
+  rooms.forEach((r, i) => { roomNoMap[r.id] = '#' + (1000 + i + 1); });
+
+  const selectRoom = (r) => {
+    setActive(r);
+    setPanelOpen(true);
+    setTab('messages');
+    setUnread((prev) => ({ ...prev, [r.id]: 0 }));
+  };
+
+  const closePanel = () => setPanelOpen(false);
 
   const log = async (action, target) => { await base44.entities.AdminLog.create({ admin_id: admin?.id, admin_name: admin?.username, action, target }).catch(() => {}); };
-  const del = async () => { await base44.entities.RoomMessage.delete(confirm.id); await log('Mesaj silindi', active?.name); toast({ title: 'Silindi' }); setConfirm(null); setMenuMsg(null); setMessages((p) => p.filter((m) => m.id !== confirm.id)); };
-  const delAll = async () => { await base44.entities.RoomMessage.deleteMany({ room_id: active.id }); await log('Tüm oda mesajları silindi', active?.name); setMessages([]); setConfirmAll(false); toast({ title: 'Tüm mesajlar silindi' }); };
+
+  const del = async () => {
+    if (!confirm) return;
+    const id = confirm.id;
+    await base44.entities.RoomMessage.delete(id);
+    await log('Mesaj silindi', active?.name);
+    toast({ title: 'Silindi' });
+    setConfirm(null);
+    setMenuMsg(null);
+    setMessages((p) => p.filter((m) => m.id !== id));
+  };
+
+  const delAll = async () => {
+    if (!active) return;
+    await base44.entities.RoomMessage.deleteMany({ room_id: active.id });
+    await log('Tüm oda mesajları silindi', active.name);
+    setMessages([]);
+    setConfirmAll(false);
+    toast({ title: 'Tüm mesajlar silindi' });
+  };
 
   const send = async () => {
-    const text = input.trim(); if (!text || !active) return;
+    const text = input.trim();
+    if (!text || !active) return;
     try {
-      const msg = await base44.entities.RoomMessage.create({ room_id: active.id, user_id: admin.id, user_name: admin.username || admin.full_name || 'Admin', user_avatar: admin.avatar || '', text, type: 'user' });
-      setMessages((p) => [...p, msg]); setInput('');
+      const msg = await base44.entities.RoomMessage.create({
+        room_id: active.id, user_id: admin.id,
+        user_name: admin.username || admin.full_name || 'Admin',
+        user_avatar: admin.avatar || '', text, type: 'user',
+      });
+      setMessages((p) => p.some((m) => m.id === msg.id) ? p : [...p, msg]);
+      setInput('');
     } catch (e) { toast({ title: 'Gönderilemedi', variant: 'destructive' }); }
   };
 
-  const copyRoomNo = () => { if (!active) return; const num = roomNumber(active, 0, page); navigator.clipboard?.writeText(num); toast({ title: 'Kopyalandı', description: num }); };
+  const copyRoomNo = () => {
+    if (!active) return;
+    const num = roomNoMap[active.id] || '';
+    navigator.clipboard?.writeText(num);
+    toast({ title: 'Kopyalandı', description: num });
+  };
 
   const exportMessages = () => {
     if (!active || messages.length === 0) { toast({ title: 'Dışa aktarılacak mesaj yok' }); return; }
@@ -87,185 +173,94 @@ export default function AdminRoomMessages() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pagedRooms = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const panelProps = {
+    active, owner, messages, msgProfiles, participantProfiles,
+    tab, setTab, input, setInput, send,
+    menuMsg, setMenuMsg, setConfirm, setConfirmAll,
+    exportMessages, copyRoomNo,
+    roomNo: active ? (roomNoMap[active.id] || '') : '',
+  };
+
   return (
     <div>
       {/* Header */}
-      <div className="flex items-start justify-between mb-4 gap-3">
-        <div>
-          <h1 className="text-2xl font-extrabold">Oda Mesajları</h1>
-          <p className="text-sm text-muted-foreground">Odaları seçerek mesaj geçmişlerini görüntüleyin ve yönetin.</p>
-        </div>
-        <button onClick={exportMessages} className="inline-flex items-center gap-1.5 bg-secondary px-4 py-2 rounded-lg text-sm font-semibold shrink-0"><Download className="w-4 h-4" /> Dışa Aktar</button>
+      <div className="mb-4">
+        <h1 className="text-2xl font-extrabold">Oda Mesajları</h1>
+        <p className="text-sm text-muted-foreground">Odaları seçerek mesaj geçmişlerini görüntüleyin ve yönetin.</p>
       </div>
 
-      <div className="grid lg:grid-cols-[300px_1fr] gap-4 h-[calc(100vh-200px)]">
-        {/* Sol: Oda Listesi */}
-        <div className="bg-card border border-border rounded-2xl p-4 flex flex-col min-h-0">
+      {/* Layout */}
+      <div className="grid lg:grid-cols-[300px_1fr] gap-4 lg:h-[calc(100vh-200px)]">
+        {/* Room List */}
+        <div className="bg-card border border-border rounded-2xl p-4 flex flex-col min-h-0 max-h-[70vh] lg:max-h-none">
+          {/* Search */}
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Oda ara..." className="w-full bg-secondary/60 rounded-full pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
           </div>
-          <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
+          {/* Room cards */}
+          <div className="flex-1 overflow-y-auto space-y-2 min-h-0 overscroll-contain">
             {pagedRooms.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Oda yok.</p>}
-            {pagedRooms.map((r, idx) => (
-              <button key={r.id} onClick={() => setActive(r)} className={`w-full text-left p-3 rounded-xl border transition-colors ${active?.id === r.id ? 'border-primary bg-primary/5' : 'border-border hover:border-border/80'}`}>
+            {pagedRooms.map((r) => (
+              <button key={r.id} onClick={() => selectRoom(r)} className={`w-full text-left p-3 rounded-xl border transition-colors ${active?.id === r.id ? 'border-primary bg-primary/5' : 'border-border hover:border-border/80'}`}>
                 <div className="flex items-center gap-2.5">
-                  {roomOwners[r.owner_id]?.avatar ? <Image src={roomOwners[r.owner_id].avatar} className="w-9 h-9 rounded-full object-cover shrink-0" fittingType="fill" /> : <span className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-sm font-bold shrink-0">{(r.owner_name || '?')[0]}</span>}
+                  {roomOwners[r.owner_id]?.avatar ? (
+                    <Image src={roomOwners[r.owner_id].avatar} className="w-9 h-9 rounded-full object-cover shrink-0" fittingType="fill" />
+                  ) : (
+                    <span className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-sm font-bold shrink-0">{(r.owner_name || '?')[0]}</span>
+                  )}
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm truncate">{r.name}</p>
-                    <p className="text-xs text-muted-foreground truncate flex items-center gap-1">{r.owner_name || 'Oda Sahibi yok'}{roomOwners[r.owner_id]?.member_id && <><span>·</span><span>#{roomOwners[r.owner_id].member_id}</span><span onClick={(e) => { e.stopPropagation(); navigator.clipboard?.writeText(roomOwners[r.owner_id].member_id); toast({ title: 'Üye No kopyalandı', description: `#${roomOwners[r.owner_id].member_id}` }); }} className="text-muted-foreground hover:text-primary shrink-0 cursor-pointer" title="Üye No kopyala"><Copy className="w-3 h-3" /></span></>}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-medium text-sm truncate">{r.name}</p>
+                      <span className="text-xs text-muted-foreground shrink-0">{roomNoMap[r.id]}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{r.owner_name || 'Oda Sahibi yok'}</p>
                   </div>
+                  {unread[r.id] > 0 && (
+                    <span className="shrink-0 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center">{unread[r.id]}</span>
+                  )}
                 </div>
                 <div className="flex items-center justify-between mt-2">
                   <span className="inline-flex items-center gap-1 text-xs"><span className={`w-2 h-2 rounded-full ${r.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} /> {r.status === 'active' ? 'Aktif' : 'Kapalı'}</span>
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Users className="w-3 h-3" /> {r.participants?.length || 0}</span>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1"><Users className="w-3 h-3" /> {r.participants?.length || 0}</span>
+                    <span className="inline-flex items-center gap-1"><MessageSquare className="w-3 h-3" /> {roomMsgCounts[r.id] || 0}</span>
+                  </div>
                 </div>
               </button>
             ))}
           </div>
+          {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-1 mt-3 pt-3 border-t border-border">
               <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="p-1.5 rounded-lg hover:bg-secondary disabled:opacity-40"><ChevronLeft className="w-4 h-4" /></button>
-              {Array.from({ length: totalPages }, (_, i) => (
-                <button key={i} onClick={() => setPage(i + 1)} className={`w-7 h-7 rounded-full text-xs font-medium border ${page === i + 1 ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:bg-secondary'}`}>{i + 1}</button>
-              ))}
+              {Array.from({ length: totalPages }, (_, i) => {
+                if (i === 0 || i === totalPages - 1 || Math.abs(i + 1 - page) <= 1) return <button key={i} onClick={() => setPage(i + 1)} className={`w-7 h-7 rounded-full text-xs font-medium border ${page === i + 1 ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:bg-secondary'}`}>{i + 1}</button>;
+                if (Math.abs(i + 1 - page) === 2) return <span key={i} className="px-1 text-muted-foreground text-xs">...</span>;
+                return null;
+              })}
               <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-1.5 rounded-lg hover:bg-secondary disabled:opacity-40"><ChevronRight className="w-4 h-4" /></button>
             </div>
           )}
         </div>
 
-        {/* Sağ: Sohbet Penceresi */}
-        <div className="bg-card border border-border rounded-2xl flex flex-col min-h-0 overflow-hidden">
-          {!active ? <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Görüntülemek için bir oda seçin.</div> : (
-            <>
-              {/* Room Header */}
-              <div className="p-4 border-b border-border">
-                <div className="flex items-start gap-3">
-                  <Link to={`/kullanici/${active.owner_id}`} className="shrink-0">
-                    {owner?.avatar ? <Image src={owner.avatar} className="w-14 h-14 rounded-full object-cover" fittingType="fill" /> : <span className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xl font-bold">{(active.owner_name || '?')[0]}</span>}
-                  </Link>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold truncate">{active.name}</p>
-                      <button onClick={copyRoomNo} className="text-muted-foreground hover:text-foreground shrink-0"><Copy className="w-3.5 h-3.5" /></button>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 mt-2">
-                      <div><p className="text-[10px] text-muted-foreground mb-0.5">Oda Sahibi</p><UserBadge userId={active.owner_id} name={active.owner_name || '-'} avatar={owner?.avatar} memberId={owner?.member_id} size="sm" /></div>
-                      <InfoItem icon={Hash} label="Oda Numarası" value={roomNumber(active, 0, page)} />
-                      <InfoItem icon={Calendar} label="Oluşturulma" value={new Date(active.created_date).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />
-                      <div className="flex items-center gap-1.5">
-                        <Shield className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <div><p className="text-[10px] text-muted-foreground">Durum</p><span className={`text-xs px-2 py-0.5 rounded-full ${active.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>{active.status === 'active' ? 'Aktif' : 'Kapalı'}</span></div>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <div><p className="text-[10px] text-muted-foreground">Katılımcı</p><p className="text-xs font-medium">{active.participants?.length || 0}</p></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tabs */}
-              <div className="flex border-b border-border">
-                <button onClick={() => setTab('messages')} className={`flex-1 py-2.5 text-sm font-medium relative ${tab === 'messages' ? 'text-foreground' : 'text-muted-foreground'}`}>Mesajlar{messages.length > 0 && <span className="ml-1 text-xs text-muted-foreground">({messages.length})</span>}{tab === 'messages' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}</button>
-                <button onClick={() => setTab('participants')} className={`flex-1 py-2.5 text-sm font-medium relative ${tab === 'participants' ? 'text-foreground' : 'text-muted-foreground'}`}>Katılımcılar ({active.participants?.length || 0}){tab === 'participants' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}</button>
-                <button onClick={() => setTab('info')} className={`flex-1 py-2.5 text-sm font-medium relative ${tab === 'info' ? 'text-foreground' : 'text-muted-foreground'}`}>Oda Bilgileri{tab === 'info' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}</button>
-              </div>
-
-              {/* İçerik */}
-              {tab === 'participants' ? (
-                <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                  {(active.participants || []).length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">Katılımcı yok.</p> :
-                    (active.participants || []).map((p) => {
-                      const prof = participantProfiles[p.user_id];
-                      return <div key={p.user_id} className="p-2 rounded-lg hover:bg-secondary/40"><UserBadge userId={p.user_id} name={p.name} avatar={p.avatar || prof?.avatar} memberId={prof?.member_id} size="md" isOwner={p.user_id === active.owner_id} /></div>;
-                    })}
-                </div>
-              ) : tab === 'info' ? (
-                <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                  <DetailRow label="Oda Adı" value={active.name} />
-                  <DetailRow label="Oda Numarası" value={roomNumber(active, 0, page)} />
-                  <DetailRow label="Oda Sahibi" value={active.owner_name || '-'} />
-                  <DetailRow label="Film" value={active.movie_title || '-'} />
-                  <DetailRow label="Durum" value={active.status === 'active' ? 'Aktif' : 'Kapalı'} />
-                  <DetailRow label="Katılımcı" value={`${active.participants?.length || 0}/${active.max_users || 10}`} />
-                  <DetailRow label="Şifreli" value={active.password ? 'Evet' : 'Hayır'} />
-                  <DetailRow label="Sohbet" value={active.chat_enabled ? 'Açık' : 'Kapalı'} />
-                  <DetailRow label="Sesli" value={active.voice_enabled ? 'Açık' : 'Kapalı'} />
-                  <DetailRow label="Oluşturulma" value={new Date(active.created_date).toLocaleString('tr-TR')} />
-                  {messages.length > 0 && <button onClick={() => setConfirmAll(true)} className="mt-3 inline-flex items-center gap-1.5 bg-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm font-semibold"><Trash2 className="w-4 h-4" /> Tüm Mesajları Sil</button>}
-                </div>
-              ) : (
-                <>
-                  <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3" onClick={() => menuMsg && setMenuMsg(null)}>
-                    {messages.length === 0 ? <p className="text-sm text-muted-foreground text-center py-10">Mesaj yok.</p> :
-                      <>
-                        <div className="flex items-center gap-3 my-2"><div className="flex-1 h-px bg-border" /><span className="text-xs text-muted-foreground">Bugün</span><div className="flex-1 h-px bg-border" /></div>
-                        {messages.map((m) => (
-                          m.type === 'system' ? (
-                            <div key={m.id} className="flex items-center justify-center gap-1.5">
-                              <span className="text-xs text-muted-foreground">{m.text}</span>
-                              <Users className="w-3.5 h-3.5 text-green-500" />
-                              <span className="text-xs text-muted-foreground">{new Date(m.created_date).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                          ) : (
-                            <div key={m.id} className="flex gap-2.5 group relative">
-                              <Link to={`/kullanici/${m.user_id}`} className="shrink-0">
-                                {(m.user_avatar || msgProfiles[m.user_id]?.avatar) ? <Image src={m.user_avatar || msgProfiles[m.user_id]?.avatar} className="w-8 h-8 rounded-full object-cover" fittingType="fill" /> : <span className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold">{(m.user_name || '?')[0]}</span>}
-                              </Link>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <Link to={`/kullanici/${m.user_id}`} className="text-sm font-semibold text-primary hover:underline">{m.user_name}</Link>
-                                  {m.user_id === active.owner_id && <Crown className="w-3 h-3 text-amber-400" />}
-                                  {msgProfiles[m.user_id]?.member_id && <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground"><span>#{msgProfiles[m.user_id].member_id}</span><button onClick={() => { navigator.clipboard?.writeText(msgProfiles[m.user_id].member_id); toast({ title: 'Üye No kopyalandı', description: `#${msgProfiles[m.user_id].member_id}` }); }} className="text-muted-foreground hover:text-primary shrink-0" title="Üye No kopyala"><Copy className="w-3 h-3" /></button></span>}
-                                </div>
-                                <p className="text-sm mt-0.5 break-words">{m.text}</p>
-                              </div>
-                              <span className="text-xs text-muted-foreground shrink-0 self-start mt-1">{new Date(m.created_date).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
-                              <div className="relative shrink-0">
-                                <button onClick={() => setMenuMsg(menuMsg === m.id ? null : m.id)} className="p-1 rounded hover:bg-secondary text-muted-foreground"><MoreVertical className="w-4 h-4" /></button>
-                                {menuMsg === m.id && (
-                                  <div className="absolute right-0 top-7 z-20 bg-popover border border-border rounded-lg shadow-xl py-1 w-32">
-                                    <button onClick={() => { setConfirm(m); setMenuMsg(null); }} className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 flex items-center gap-1.5"><Trash2 className="w-3 h-3" /> Sil</button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )
-                        ))}
-                      </>
-                    }
-                  </div>
-                  {/* Mesaj Input */}
-                  <div className="p-3 border-t border-border">
-                    <div className="flex items-center gap-2 bg-secondary/60 rounded-full pl-4 pr-1.5 py-1.5 border border-border focus-within:ring-2 focus-within:ring-ring">
-                      <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') send(); if (e.key === 'Escape') setMenuMsg(null); }} placeholder="Mesaj yazın..." className="flex-1 bg-transparent text-sm outline-none" />
-                      <button onClick={send} className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"><Send className="w-4 h-4" /></button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </>
-          )}
+        {/* Desktop Message Panel */}
+        <div className="hidden lg:flex bg-card border border-border rounded-2xl flex-col min-h-0 overflow-hidden">
+          <RoomMessagePanel {...panelProps} isMobile={false} scrollRef={desktopScrollRef} />
         </div>
       </div>
 
+      {/* Mobile Slide-in Panel */}
+      <div className={`lg:hidden fixed inset-0 z-50 transition-opacity duration-300 ${panelOpen && active ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}>
+        <div className="absolute inset-0 bg-black/50" onClick={closePanel} />
+        <div className={`absolute top-0 right-0 w-full max-w-[400px] h-[100dvh] bg-card flex flex-col transition-transform duration-300 ease-out ${panelOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+          {active && <RoomMessagePanel {...panelProps} isMobile={true} onClose={closePanel} scrollRef={mobileScrollRef} />}
+        </div>
+      </div>
+
+      {/* Dialogs */}
       <ConfirmDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)} title="Mesajı sil?" onConfirm={del} />
       <ConfirmDialog open={confirmAll} onOpenChange={(o) => !o && setConfirmAll(false)} title="Tüm mesajları sil?" description="Bu odadaki tüm mesajlar kalıcı olarak silinecek." confirmText="Tümünü Sil" onConfirm={delAll} />
     </div>
   );
-}
-
-function InfoItem({ icon: Icon, label, value }) {
-  return (
-    <div className="flex items-center gap-1.5 min-w-0">
-      <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-      <div className="min-w-0"><p className="text-[10px] text-muted-foreground">{label}</p><p className="text-xs font-medium truncate">{value}</p></div>
-    </div>
-  );
-}
-
-function DetailRow({ label, value }) {
-  return <div className="flex justify-between text-sm py-2 border-b border-border last:border-0"><span className="text-muted-foreground">{label}</span><span className="font-medium text-right">{value}</span></div>;
 }
