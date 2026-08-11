@@ -71,9 +71,12 @@ export default async function(req) {
       const participants = (room.participants || []).filter((p) => p.user_id !== target_id);
       const targetName = (room.participants || []).find((p) => p.user_id === target_id)?.name || 'Kullanıcı';
       if (participants.length === 0) {
-        await base44.asServiceRole.entities.RoomMessage.deleteMany({ room_id });
-        await base44.asServiceRole.entities.Room.delete(room_id);
-        return Response.json({ ok: true, deleted: true });
+        await base44.asServiceRole.entities.Room.update(room_id, { participants, status: 'closed' });
+        await base44.asServiceRole.entities.RoomMessage.create({
+          room_id, user_id: target_id, user_name: targetName,
+          text: `${targetName} odadan atıldı. Oda kapandı.`, type: 'system'
+        });
+        return Response.json({ ok: true, closed: true });
       }
       await base44.asServiceRole.entities.Room.update(room_id, { participants });
       await base44.asServiceRole.entities.RoomMessage.create({
@@ -111,9 +114,12 @@ export default async function(req) {
     if (ghost) return Response.json({ ok: true });
     const participants = (room.participants || []).filter((p) => p.user_id !== user.id);
     if (participants.length === 0) {
-      await base44.asServiceRole.entities.RoomMessage.deleteMany({ room_id });
-      await base44.asServiceRole.entities.Room.delete(room_id);
-      return Response.json({ ok: true, deleted: true });
+      await base44.asServiceRole.entities.Room.update(room_id, { participants, status: 'closed' });
+      await base44.asServiceRole.entities.RoomMessage.create({
+        room_id, user_id: user.id, user_name: name,
+        text: `${name} odadan ayrıldı. Oda kapandı.`, type: 'system'
+      });
+      return Response.json({ ok: true, closed: true });
     }
     let owner_id = room.owner_id;
     let owner_name = room.owner_name;
