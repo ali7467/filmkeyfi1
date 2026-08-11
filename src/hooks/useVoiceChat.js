@@ -18,6 +18,7 @@ const ICE_SERVERS = {
  */
 export function useVoiceChat({ roomId, user, participants, voiceEnabled, onSpeakingChange }) {
   const [muted, setMuted] = useState(false);
+  const [remoteMuted, setRemoteMuted] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [active, setActive] = useState(false);
   const [error, setError] = useState('');
@@ -26,6 +27,7 @@ export function useVoiceChat({ roomId, user, participants, voiceEnabled, onSpeak
   const pendingIceRef = useRef({});      // { [otherId]: candidate[] }
   const initiatedRef = useRef(new Set());
   const mutedRef = useRef(false);
+  const remoteMutedRef = useRef(false);
   const audioCtxRef = useRef(null);
   const rafRef = useRef(null);
   const participantsRef = useRef(participants);
@@ -268,12 +270,27 @@ export function useVoiceChat({ roomId, user, participants, voiceEnabled, onSpeak
   // Speaking değişimi
   useEffect(() => { onSpeakingRef.current?.(speaking); }, [speaking]);
 
+  // Uzaktan susturma zorunluluğu — oda sahibi/admin susturduğunda mikrofonu gerçekten kapat
+  useEffect(() => {
+    if (!user) return;
+    const myParticipant = (participants || []).find((p) => p.user_id === user.id);
+    const isRemoteMuted = !!myParticipant?.muted;
+    if (isRemoteMuted !== remoteMutedRef.current) {
+      remoteMutedRef.current = isRemoteMuted;
+      setRemoteMuted(isRemoteMuted);
+      const effectiveMuted = isRemoteMuted || mutedRef.current;
+      localStreamRef.current?.getAudioTracks().forEach((t) => (t.enabled = !effectiveMuted));
+    }
+  }, [participants, user?.id]);
+
   const toggleMute = useCallback(() => {
+    // Uzaktan susturulmuşsa kendi mikrofonunu açamaz
+    if (remoteMutedRef.current) return;
     const next = !mutedRef.current;
     mutedRef.current = next;
     setMuted(next);
     localStreamRef.current?.getAudioTracks().forEach((t) => (t.enabled = !next));
   }, []);
 
-  return { muted, speaking, active, error, toggleMute };
+  return { muted, remoteMuted, speaking, active, error, toggleMute };
 }

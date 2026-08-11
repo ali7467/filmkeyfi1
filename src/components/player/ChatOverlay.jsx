@@ -5,16 +5,18 @@ import { base44 } from '@/api/base44Client';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
 import { Image } from '@/components/ui/image';
+import ChatUserMenu from '@/components/player/ChatUserMenu';
 
 const EMOJIS = ['😀', '😂', '😍', '🔥', '👍', '👏', '😱', '😢', '🎬', '🍿', '❤️', '🎉'];
 
-export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
+export default function ChatOverlay({ roomId, chatEnabled, isOwner, isAdmin, onClose }) {
   const { user } = useCurrentUser();
   const { toast } = useToast();
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [modTarget, setModTarget] = useState(null); // { userId, userName, userAvatar }
   const scrollRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -66,6 +68,13 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
     catch (err) { toast({ title: 'Silinemedi', description: err.response?.data?.error || err.message, variant: 'destructive' }); }
   };
 
+  const handleUserClick = (e, m) => {
+    if (isAdmin && m.user_id !== user?.id) {
+      e.preventDefault();
+      setModTarget({ userId: m.user_id, userName: m.user_name, userAvatar: m.user_avatar });
+    }
+  };
+
   if (!chatEnabled) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center p-6 text-muted-foreground">
@@ -94,12 +103,12 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
                <span className="text-xs text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">{m.text}</span>
              ) : (
                <>
-                 <Link to={`/kullanici/${m.user_id}`} className="shrink-0">
+                 <Link to={`/kullanici/${m.user_id}`} onClick={(e) => handleUserClick(e, m)} className="shrink-0">
                    {m.user_avatar ? <Image src={m.user_avatar} className="w-7 h-7 rounded-full object-cover" fittingType="fill" /> : <span className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold">{(m.user_name || '?')[0]}</span>}
                  </Link>
                  <div className="min-w-0 flex-1">
                    <div className="flex items-center gap-2">
-                     <Link to={`/kullanici/${m.user_id}`} className="text-xs font-semibold truncate hover:underline">{m.user_name}{user?.id === m.user_id && ' (Sen)'}</Link>
+                     <Link to={`/kullanici/${m.user_id}`} onClick={(e) => handleUserClick(e, m)} className="text-xs font-semibold truncate hover:underline">{m.user_name}{user?.id === m.user_id && ' (Sen)'}</Link>
                    </div>
                    <p className="text-sm break-words bg-secondary/50 rounded-lg px-2.5 py-1.5 inline-block">{m.text}</p>
                  </div>
@@ -121,6 +130,16 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Mesaj yazın..." className="flex-1 bg-secondary/60 rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
         <button type="submit" disabled={!text.trim()} className="p-2.5 rounded-full bg-primary text-primary-foreground disabled:opacity-50"><Send className="w-4 h-4" /></button>
       </form>
+
+      {modTarget && (
+        <ChatUserMenu
+          userId={modTarget.userId}
+          userName={modTarget.userName}
+          userAvatar={modTarget.userAvatar}
+          roomId={roomId}
+          onClose={() => setModTarget(null)}
+        />
+      )}
     </div>
   );
 }

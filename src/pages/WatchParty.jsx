@@ -253,7 +253,7 @@ export default function WatchParty() {
 
         {chatOpen && (
           <div className="w-[300px] max-w-[42%] min-h-0 border-l border-border bg-card flex flex-col shrink-0">
-            <ChatOverlay roomId={id} chatEnabled={chatEnabled} isOwner={canMod} onClose={() => setChatOpen(false)} />
+            <ChatOverlay roomId={id} chatEnabled={chatEnabled} isOwner={canMod} isAdmin={isMod} onClose={() => setChatOpen(false)} />
           </div>
         )}
 
@@ -312,8 +312,9 @@ export default function WatchParty() {
       {room.voice_enabled && (
         <div className="shrink-0 px-3 py-2 bg-background/95 border-t border-border flex items-center gap-3 flex-wrap" style={{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
           {voice.error && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" /> {voice.error}</p>}
-          <button onClick={voice.toggleMute} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${voice.muted ? 'bg-destructive/20 text-destructive' : 'bg-green-500/20 text-green-400'}`}>
-            {voice.muted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />} {voice.muted ? 'SUSTURULDU' : 'KONUŞUYOR'}
+          {voice.remoteMuted && <p className="text-xs text-amber-400 flex items-center gap-1 font-semibold"><MicOff className="w-3.5 h-3.5" /> Oda sahibi tarafından susturuldunuz</p>}
+          <button onClick={voice.toggleMute} disabled={voice.remoteMuted} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${voice.remoteMuted ? 'bg-destructive/30 text-destructive cursor-not-allowed' : voice.muted ? 'bg-destructive/20 text-destructive' : 'bg-green-500/20 text-green-400'}`}>
+            {voice.muted || voice.remoteMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />} {voice.remoteMuted ? 'SUSTURULDUNUZ' : voice.muted ? 'SUSTURULDU' : 'KONUŞUYOR'}
           </button>
           <span className="text-xs text-muted-foreground">{voice.active ? 'Bağlı' : 'Bağlanıyor...'}</span>
           {(room.participants || []).filter((p) => p.speaking).map((p) => (
