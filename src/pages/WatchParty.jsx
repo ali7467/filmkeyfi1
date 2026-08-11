@@ -7,6 +7,7 @@ import { useVoiceChat } from '@/hooks/useVoiceChat';
 import { useCurrentUser, membershipActive } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
 import { Mic, MicOff, AlertCircle, Crown, X, MessageSquare, Eye, EyeOff, Lock, Unlock } from 'lucide-react';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 export default function WatchParty() {
   const { id } = useParams();
@@ -22,6 +23,7 @@ export default function WatchParty() {
   const [pwInput, setPwInput] = useState('');
   const [pwSetInput, setPwSetInput] = useState('');
   const [showPwSet, setShowPwSet] = useState(false);
+  const [showPwRemoveConfirm, setShowPwRemoveConfirm] = useState(false);
   const [syncState, setSyncState] = useState({ is_playing: false, current_time: 0, last_sync: null });
   const [unread, setUnread] = useState(0);
   const joinedRef = useRef(false);
@@ -241,7 +243,7 @@ export default function WatchParty() {
             {canMod && (
               <div className="flex gap-1.5 mt-2">
                 <button onClick={toggleHidden} className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-secondary text-xs font-semibold" title="Gizle/Göster">{room.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}{room.hidden ? 'GÖSTER' : 'GİZLE'}</button>
-                <button onClick={() => { if (room.password) savePassword(''); else { setShowPwSet(!showPwSet); setPwSetInput(''); } }} className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-secondary text-xs font-semibold" title="Şifre">{room.password ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}{room.password ? 'ŞİFRE KALDIR' : 'ŞİFRE KOY'}</button>
+                <button onClick={() => { if (room.password) setShowPwRemoveConfirm(true); else { setShowPwSet(!showPwSet); setPwSetInput(''); } }} className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-secondary text-xs font-semibold" title="Şifre">{room.password ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}{room.password ? 'ŞİFRE KALDIR' : 'ŞİFRE KOY'}</button>
               </div>
             )}
             {canMod && showPwSet && (
