@@ -139,10 +139,11 @@ export function useVoiceChat({ roomId, user, participants, voiceEnabled, onSpeak
     };
   }, [voiceEnabled, roomId, user?.id]);
 
-  // Yeni katılımcılar geldiğinde bağlan
+  // Yeni katılımcılar geldiğinde bağlan (sadece ID listesi değiştiğinde)
+  const participantIdsKey = (participants || []).map((p) => p.user_id).filter(Boolean).sort().join(',');
   useEffect(() => {
     if (active) startCall();
-  }, [participants, active]);
+  }, [participantIdsKey, active]);
 
   useEffect(() => { onSpeakingChange?.(speaking); }, [speaking]);
 

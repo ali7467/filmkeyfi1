@@ -6,7 +6,8 @@ import ChatOverlay from '@/components/player/ChatOverlay';
 import { useVoiceChat } from '@/hooks/useVoiceChat';
 import { useCurrentUser, membershipActive } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
-import { Mic, MicOff, AlertCircle, Crown, X, MessageSquare, Eye, EyeOff, Lock, Unlock } from 'lucide-react';
+import { Mic, MicOff, AlertCircle, Crown, X, MessageSquare, MessageSquareOff, Eye, EyeOff, Lock, Unlock } from 'lucide-react';
+import { Image } from '@/components/ui/image';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 export default function WatchParty() {
@@ -26,10 +27,12 @@ export default function WatchParty() {
   const [showPwRemoveConfirm, setShowPwRemoveConfirm] = useState(false);
   const [syncState, setSyncState] = useState({ is_playing: false, current_time: 0, last_sync: null });
   const [unread, setUnread] = useState(0);
+  const [viewerProfiles, setViewerProfiles] = useState({});
   const joinedRef = useRef(false);
   const ghostRef = useRef(false);
   const kickedRef = useRef(false);
   const lastUpdateRef = useRef(0);
+  const lastSyncRef = useRef({ is_playing: false, current_time: 0 });
   const playerWrapRef = useRef(null);
   const touchStart = useRef({ x: 0, y: 0 });
   const speakingRef = useRef(false);
@@ -39,7 +42,7 @@ export default function WatchParty() {
     if (speakingRef.current === speaking) return;
     speakingRef.current = speaking;
     const now = Date.now();
-    if (now - lastSpeakingSync.current < 600) return;
+    if (now - lastSpeakingSync.current < 2000) return;
     lastSpeakingSync.current = now;
     if (!room || !user) return;
     const participants = (room.participants || []).map((p) => p.user_id === user.id ? { ...p, speaking } : p);
@@ -82,7 +85,12 @@ export default function WatchParty() {
     const unsub = base44.entities.Room.subscribe((ev) => {
       if (ev.type === 'update' && ev.data?.id === id) {
         setRoom(ev.data);
-        setSyncState({ is_playing: ev.data.is_playing, current_time: ev.data.current_time, last_sync: ev.data.last_sync });
+        const playingChanged = ev.data.is_playing !== lastSyncRef.current.is_playing;
+        const timeChanged = Math.abs((ev.data.current_time || 0) - lastSyncRef.current.current_time) > 3;
+        if (playingChanged || timeChanged) {
+          lastSyncRef.current = { is_playing: ev.data.is_playing, current_time: ev.data.current_time };
+          setSyncState({ is_playing: ev.data.is_playing, current_time: ev.data.current_time, last_sync: ev.data.last_sync });
+        }
       }
     });
     return unsub;
@@ -107,6 +115,19 @@ export default function WatchParty() {
       navigate('/');
     }
   }, [room?.participants, user?.id]);
+
+  // İzleyici profillerini çek (gerçek avatarlar için)
+  const participantIdsKey = (room?.participants || []).map((p) => p.user_id).filter(Boolean).sort().join(',');
+  useEffect(() => {
+    if (!participantIdsKey) return;
+    const ids = participantIdsKey.split(',');
+    Promise.all(ids.map((uid) => base44.functions.invoke('user-profile', { user_id: uid }).catch(() => null)))
+      .then((profiles) => {
+        const map = {};
+        ids.forEach((uid, i) => { if (profiles[i]) map[uid] = profiles[i]; });
+        setViewerProfiles(map);
+      });
+  }, [participantIdsKey]);
 
   const leaveRoom = async () => {
     if (!user || !joinedRef.current || kickedRef.current) return;
@@ -138,6 +159,18 @@ export default function WatchParty() {
   const toggleVoice = async () => {
     if (!canMod) { toast({ title: 'Yetkiniz yok', variant: 'destructive' }); return; }
     try { await base44.functions.invoke('room-presence', { action: 'toggle-voice', room_id: id }); toast({ title: room.voice_enabled ? 'Sesli sohbet kapatıldı' : 'Sesli sohbet açıldı' }); }
+    catch (e) { toast({ title: 'İşlem başarısız', description: e.response?.data?.error || e.message, variant: 'destructive' }); }
+  };
+
+  const toggleChat = async () => {
+    if (!canMod) { toast({ title: 'Yetkiniz yok', variant: 'destructive' }); return; }
+    try { await base44.functions.invoke('room-presence', { action: 'toggle-chat', room_id: id }); toast({ title: room.chat_enabled ? 'Sohbet kapatıldı' : 'Sohbet açıldı' }); }
+    catch (e) { toast({ title: 'İşlem başarısız', description: e.response?.data?.error || e.message, variant: 'destructive' }); }
+  };
+
+  const toggleMuteUser = async (uid) => {
+    if (!canMod) return;
+    try { await base44.functions.invoke('room-presence', { action: 'toggle-mute', room_id: id, target_id: uid }); }
     catch (e) { toast({ title: 'İşlem başarısız', description: e.response?.data?.error || e.message, variant: 'destructive' }); }
   };
 
@@ -231,16 +264,34 @@ export default function WatchParty() {
               <button onClick={() => setShowViewers(false)} className="text-muted-foreground"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-1.5">
-              {room.participants?.map((p) => (
-                <div key={p.user_id} className="flex items-center gap-2 text-sm">
-                  <Link to={`/kullanici/${p.user_id}`} className={`w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold shrink-0 transition-transform ${p.speaking ? 'speaking-glow scale-110' : ''}`}>{(p.name || '?')[0]}</Link>
-                  <Link to={`/kullanici/${p.user_id}`} className="flex-1 truncate hover:underline">{p.name}{p.user_id === room.owner_id && <Crown className="w-3 h-3 text-amber-400 inline ml-1" />}</Link>
-                  {p.speaking && <span className="text-[10px] text-green-400 font-semibold">🔊</span>}
-                  {canMod && p.user_id !== user.id && <button onClick={() => removeUser(p.user_id)} className="text-xs text-destructive">Çıkar</button>}
-                </div>
-              ))}
+              {room.participants?.map((p) => {
+                const prof = viewerProfiles[p.user_id];
+                const avatar = p.avatar || prof?.avatar;
+                return (
+                  <div key={p.user_id} className="flex items-center gap-2 text-sm">
+                    <Link to={`/kullanici/${p.user_id}`} className={`shrink-0 transition-transform ${p.speaking ? 'speaking-glow scale-110' : ''}`}>
+                      {avatar ? <Image src={avatar} className="w-7 h-7 rounded-full object-cover" fittingType="fill" /> : <span className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold">{(p.name || '?')[0]}</span>}
+                    </Link>
+                    <Link to={`/kullanici/${p.user_id}`} className="flex-1 truncate hover:underline">{p.name}{p.user_id === room.owner_id && <Crown className="w-3 h-3 text-amber-400 inline ml-1" />}</Link>
+                    {p.speaking && <span className="text-[10px] text-green-400 font-semibold">🔊</span>}
+                    {p.muted && <MicOff className="w-3.5 h-3.5 text-red-400 shrink-0" />}
+                    {canMod && p.user_id !== user.id && room.voice_enabled && (
+                      <button onClick={() => toggleMuteUser(p.user_id)} className={`p-1 rounded shrink-0 ${p.muted ? 'text-red-400' : 'text-green-400'}`} title={p.muted ? 'Mikrofonu aç' : 'Mikrofonu kapat'}>
+                        {p.muted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                    {canMod && p.user_id !== user.id && <button onClick={() => removeUser(p.user_id)} className="text-xs text-destructive shrink-0">Çıkar</button>}
+                  </div>
+                );
+              })}
             </div>
             <button onClick={toggleVoice} className={`w-full mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold ${room.voice_enabled ? 'bg-accent text-accent-foreground' : 'bg-secondary'}`}>{room.voice_enabled ? 'SESLİ KAPAT' : 'SESLİ AÇ'}</button>
+            {canMod && (
+              <button onClick={toggleChat} className={`w-full mt-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 ${room.chat_enabled ? 'bg-accent text-accent-foreground' : 'bg-secondary'}`}>
+                {room.chat_enabled ? <MessageSquareOff className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
+                {room.chat_enabled ? 'SOHBET KAPAT' : 'SOHBET AÇ'}
+              </button>
+            )}
             {canMod && (
               <div className="flex gap-1.5 mt-2">
                 <button onClick={toggleHidden} className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-secondary text-xs font-semibold" title="Gizle/Göster">{room.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}{room.hidden ? 'GÖSTER' : 'GİZLE'}</button>

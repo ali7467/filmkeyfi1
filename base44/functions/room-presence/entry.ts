@@ -13,7 +13,7 @@ export default async function(req) {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json();
     const { action, room_id, password, target_id } = body || {};
-    if (!room_id || !['join', 'leave', 'kick', 'set-password', 'toggle-hidden', 'toggle-voice'].includes(action)) {
+    if (!room_id || !['join', 'leave', 'kick', 'set-password', 'toggle-hidden', 'toggle-voice', 'toggle-mute', 'toggle-chat'].includes(action)) {
       return Response.json({ error: 'invalid request' }, { status: 400 });
     }
     const name = user.username || user.full_name || 'Kullanıcı';
@@ -108,6 +108,21 @@ export default async function(req) {
       if (!isOwner && !isMod) return Response.json({ error: 'yetkisiz' }, { status: 403 });
       await base44.asServiceRole.entities.Room.update(room_id, { voice_enabled: !room.voice_enabled });
       return Response.json({ ok: true, voice_enabled: !room.voice_enabled });
+    }
+
+    if (action === 'toggle-chat') {
+      if (!isOwner && !isMod) return Response.json({ error: 'yetkisiz' }, { status: 403 });
+      await base44.asServiceRole.entities.Room.update(room_id, { chat_enabled: !room.chat_enabled });
+      return Response.json({ ok: true, chat_enabled: !room.chat_enabled });
+    }
+
+    if (action === 'toggle-mute') {
+      if (!isOwner && !isMod) return Response.json({ error: 'yetkisiz' }, { status: 403 });
+      const participants = (room.participants || []).map((p) =>
+        p.user_id === target_id ? { ...p, muted: !p.muted } : p
+      );
+      await base44.asServiceRole.entities.Room.update(room_id, { participants });
+      return Response.json({ ok: true });
     }
 
     // leave

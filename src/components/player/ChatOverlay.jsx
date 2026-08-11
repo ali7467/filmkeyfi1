@@ -4,6 +4,7 @@ import { Send, X, Smile, Trash2, MessageSquareOff } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
+import { Image } from '@/components/ui/image';
 
 const EMOJIS = ['😀', '😂', '😍', '🔥', '👍', '👏', '😱', '😢', '🎬', '🍿', '❤️', '🎉'];
 
@@ -31,7 +32,11 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
     load();
     const unsub = base44.entities.RoomMessage.subscribe((ev) => {
       if (ev.type === 'create') {
-        setMessages((prev) => prev.some((m) => m.id === ev.data.id) ? prev : [...prev, ev.data]);
+        setMessages((prev) => {
+          const tempMatch = prev.find((m) => m.id.startsWith('temp-') && m.user_id === ev.data.user_id && m.text === ev.data.text);
+          if (tempMatch) return prev.map((m) => m === tempMatch ? ev.data : m);
+          return prev.some((m) => m.id === ev.data.id) ? prev : [...prev, ev.data];
+        });
         setTimeout(scrollToBottom, 50);
       }
     });
@@ -41,8 +46,13 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
   const send = (e) => {
     e?.preventDefault();
     if (!text.trim() || !user) return;
-    base44.functions.invoke('send-room-message', { room_id: roomId, text: text.trim() }).catch((err) => toast({ title: 'Mesaj gönderilemedi', description: err.response?.data?.error || err.message, variant: 'destructive' }));
+    const tempId = 'temp-' + Date.now();
+    const optimistic = { id: tempId, room_id: roomId, user_id: user.id, user_name: user.username || user.full_name || 'Kullanıcı', user_avatar: user.avatar || '', text: text.trim(), type: 'user', created_date: new Date().toISOString() };
+    setMessages((prev) => [...prev, optimistic]);
     setText(''); setShowEmoji(false);
+    setTimeout(scrollToBottom, 50);
+    base44.functions.invoke('send-room-message', { room_id: roomId, text: text.trim() })
+      .catch((err) => { setMessages((prev) => prev.filter((m) => m.id !== tempId)); toast({ title: 'Mesaj gönderilemedi', description: err.response?.data?.error || err.message, variant: 'destructive' }); });
   };
 
   const del = async (id) => {
@@ -84,7 +94,9 @@ export default function ChatOverlay({ roomId, chatEnabled, isOwner, onClose }) {
                <span className="text-xs text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">{m.text}</span>
              ) : (
                <>
-                 <Link to={`/kullanici/${m.user_id}`} className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent shrink-0 flex items-center justify-center text-xs font-bold">{(m.user_name || '?')[0]}</Link>
+                 <Link to={`/kullanici/${m.user_id}`} className="shrink-0">
+                   {m.user_avatar ? <Image src={m.user_avatar} className="w-7 h-7 rounded-full object-cover" fittingType="fill" /> : <span className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold">{(m.user_name || '?')[0]}</span>}
+                 </Link>
                  <div className="min-w-0 flex-1">
                    <div className="flex items-center gap-2">
                      <Link to={`/kullanici/${m.user_id}`} className="text-xs font-semibold truncate hover:underline">{m.user_name}{user?.id === m.user_id && ' (Sen)'}</Link>
