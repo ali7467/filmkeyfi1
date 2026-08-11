@@ -58,8 +58,8 @@ export default function AdminSupport() {
   return (
     <div>
       <h1 className="text-2xl font-extrabold mb-4">Destek Mesajları</h1>
-      <div className="grid sm:grid-cols-[260px_1fr] gap-4 h-[60vh]">
-        <div className="overflow-y-auto space-y-2">
+      <div className="grid sm:grid-cols-[260px_1fr] gap-4 h-[calc(100vh-180px)] sm:h-[60vh]">
+        <div className="overflow-y-auto space-y-2 max-h-[25vh] sm:max-h-none">
           {tickets.map((t) => (
             <button key={t.id} onClick={() => setActive(t)} className={`w-full text-left p-3 rounded-lg border ${active?.id === t.id ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
               <p className="font-medium text-sm truncate">{t.subject}</p>
@@ -80,7 +80,7 @@ export default function AdminSupport() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {messages.map((m) => <div key={m.id} className={`flex ${m.sender === 'admin' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${m.sender === 'admin' ? 'bg-accent text-accent-foreground' : 'bg-secondary'}`}>{m.text}</div></div>)}
+              {messages.map((m) => <div key={m.id} className={`flex ${m.sender === 'admin' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[80%] rounded-lg px-3 py-2 text-sm overflow-hidden ${m.sender === 'admin' ? 'bg-accent text-accent-foreground' : 'bg-secondary'}`}>{m.file_url && <img src={m.file_url} alt="foto" className="rounded-lg max-w-full max-h-48 object-cover mb-1" />}{m.text && m.text !== '📷 Fotoğraf' && <p>{m.text}</p>}</div></div>)}
               <div ref={endRef} />
             </div>
             <form onSubmit={send} className="p-3 border-t border-border flex items-center gap-2">

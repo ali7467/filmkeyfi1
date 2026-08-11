@@ -1,18 +1,20 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
+import { sendPushToAll } from '../../shared/webPush.ts';
 
 export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
-    const { action, ticket_id, name, email, subject, text } = body || {};
+    const { action, ticket_id, name, email, subject, text, file_url } = body || {};
 
     if (action === 'create') {
-      if (!name || !email || !text) return Response.json({ error: 'eksik bilgi' }, { status: 400 });
-      const guestId = 'guest:' + email.toLowerCase().trim();
+      if (!text && !file_url) return Response.json({ error: 'eksik bilgi' }, { status: 400 });
+      const guestId = 'guest:' + (email ? email.toLowerCase().trim() : Math.random().toString(36).slice(2, 10));
+      const displayName = name || 'Misafir';
       const ticket = await base44.asServiceRole.entities.SupportTicket.create({
         user_id: guestId,
-        user_name: name + ' (Misafir)',
-        subject: subject || 'Giriş Sayfası - Canlı Destek',
+        user_name: displayName,
+        subject: subject || 'Canlı Destek',
         category: 'Genel',
         status: 'new'
       });
@@ -21,20 +23,26 @@ export default async function(req) {
         owner_id: guestId,
         user_id: guestId,
         sender: 'user',
-        text
+        text: text || '📷 Fotoğraf',
+        file_url: file_url || ''
       });
+      // Admin'e push bildirimi gönder
+      await sendPushToAll(base44, '🎫 Yeni Destek Talebi', (text || 'Yeni destek talebi').slice(0, 100), '/admin/destek');
       return Response.json({ ticket_id: ticket.id });
     }
 
     if (action === 'send') {
-      if (!ticket_id || !text) return Response.json({ error: 'eksik bilgi' }, { status: 400 });
+      if (!ticket_id || (!text && !file_url)) return Response.json({ error: 'eksik bilgi' }, { status: 400 });
       await base44.asServiceRole.entities.SupportMessage.create({
         ticket_id,
         owner_id: 'guest',
         user_id: 'guest',
         sender: 'user',
-        text
+        text: text || '📷 Fotoğraf',
+        file_url: file_url || ''
       });
+      // Admin'e push bildirimi gönder
+      await sendPushToAll(base44, '💬 Yeni Destek Mesajı', (text || 'Yeni mesaj').slice(0, 100), '/admin/destek');
       return Response.json({ ok: true });
     }
 

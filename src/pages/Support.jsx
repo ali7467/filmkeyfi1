@@ -82,8 +82,8 @@ export default function Support() {
         </form>
       )}
 
-      <div className="grid sm:grid-cols-[260px_1fr] gap-4 h-[60vh]">
-        <div className="overflow-y-auto space-y-2 pr-1">
+      <div className="grid sm:grid-cols-[260px_1fr] gap-4 h-[calc(100vh-180px)] sm:h-[60vh]">
+        <div className="overflow-y-auto space-y-2 pr-1 max-h-[25vh] sm:max-h-none">
           {tickets.length === 0 ? <p className="text-sm text-muted-foreground text-center py-10">Henüz destek konuşmanız bulunmuyor.</p> :
             tickets.map((t) => (
               <button key={t.id} onClick={() => setActive(t)} className={`w-full text-left p-3 rounded-lg border ${active?.id === t.id ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
@@ -99,8 +99,9 @@ export default function Support() {
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
                 {messages.map((m) => (
                   <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${m.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
-                      {m.file_url ? <a href={m.file_url} target="_blank" rel="noreferrer" className="underline flex items-center gap-1"><Paperclip className="w-3 h-3" /> Dosya</a> : m.text}
+                    <div className={`max-w-[80%] rounded-lg px-3 py-2 text-sm overflow-hidden ${m.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
+                      {m.file_url && <img src={m.file_url} alt="foto" className="rounded-lg max-w-full max-h-48 object-cover mb-1" />}
+                      {m.text && m.text !== 'Dosya paylaştı' && m.text !== '📷 Fotoğraf' && <p>{m.text}</p>}
                     </div>
                   </div>
                 ))}
