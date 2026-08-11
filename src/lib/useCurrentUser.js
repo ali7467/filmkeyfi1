@@ -17,7 +17,7 @@ export function useCurrentUser() {
 
 export function membershipActive(user) {
   if (!user) return false;
-  if (user.role === 'admin') return true;
+  if (user.role === 'admin' || user.role === 'moderator') return true;
   if (user.membership_status !== 'active') return false;
   if (user.membership_end && new Date(user.membership_end) < new Date()) return false;
   return true;

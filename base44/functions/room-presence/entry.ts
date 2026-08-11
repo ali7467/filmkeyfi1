@@ -65,6 +65,9 @@ export default async function(req) {
 
     if (action === 'kick') {
       if (!isOwner && !isMod) return Response.json({ error: 'yetkisiz' }, { status: 403 });
+      const targetUser = await base44.asServiceRole.entities.User.get(target_id).catch(() => null);
+      const targetIsMod = targetUser?.role === 'admin' || targetUser?.role === 'moderator';
+      if (targetIsMod && !isMod) return Response.json({ error: 'yetkili kullanıcı atılamaz' }, { status: 403 });
       const participants = (room.participants || []).filter((p) => p.user_id !== target_id);
       const targetName = (room.participants || []).find((p) => p.user_id === target_id)?.name || 'Kullanıcı';
       if (participants.length === 0) {
