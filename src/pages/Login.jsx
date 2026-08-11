@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, Mail, Lock, Loader2, Eye, EyeOff, ArrowRight, Film, Sparkles, MessageSquare, Lock as LockIcon, Users } from "lucide-react";
+import { LogIn, Mail, Lock, Loader2, Eye, EyeOff, ArrowRight, Film, Sparkles, MessageSquare, Lock as LockIcon, Users, AlertCircle } from "lucide-react";
 import AuthBackground from "@/components/auth/AuthBackground";
 import SupportWidget from "@/components/auth/SupportWidget";
 import DownloadButtons from "@/components/DownloadButtons";
@@ -18,6 +18,8 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const returnTo = safeReturnTo();
+  const bannedParam = new URLSearchParams(window.location.search).get('banned');
+  const [banned] = useState(bannedParam === '1');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,6 +27,12 @@ export default function Login() {
     setLoading(true);
     try {
       await base44.auth.loginViaEmailPassword(email, password);
+      const me = await base44.auth.me();
+      if (me.role === 'banned' || me.membership_status === 'suspended') {
+        await base44.auth.logout();
+        setError("Hesabınız askıya alınmıştır. Giriş yapamazsınız. İletişime geçin.");
+        return;
+      }
       window.location.href = returnTo;
     } catch (err) {
       setError(err.message || "Geçersiz e-posta veya şifre");
@@ -59,6 +67,16 @@ export default function Login() {
           <h2 className="text-xl font-bold text-white">Hoş Geldin!</h2>
           <p className="text-sm text-[#a0a0a0] mt-1">Hesabına giriş yaparak devam et.</p>
         </div>
+
+        {banned && (
+          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">Hesabınız Askıya Alındı</p>
+              <p className="mt-1 text-xs">Hesabınız yönetici tarafından askıya alınmıştır. Giriş yapamazsınız. Lütfen destekle iletişime geçin.</p>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">

@@ -35,21 +35,7 @@ export default function WatchParty() {
   const lastSyncRef = useRef({ is_playing: false, current_time: 0 });
   const playerWrapRef = useRef(null);
   const touchStart = useRef({ x: 0, y: 0 });
-  const speakingRef = useRef(false);
-  const lastSpeakingSync = useRef(0);
-
-  const updateMySpeaking = (speaking) => {
-    if (speakingRef.current === speaking) return;
-    speakingRef.current = speaking;
-    const now = Date.now();
-    if (now - lastSpeakingSync.current < 2000) return;
-    lastSpeakingSync.current = now;
-    if (!room || !user) return;
-    const participants = (room.participants || []).map((p) => p.user_id === user.id ? { ...p, speaking } : p);
-    base44.entities.Room.update(id, { participants }).catch(() => {});
-  };
-
-  const voice = useVoiceChat({ roomId: id, user, participants: room?.participants, voiceEnabled: !!room?.voice_enabled, onSpeakingChange: updateMySpeaking });
+  const voice = useVoiceChat({ roomId: id, user, participants: room?.participants, voiceEnabled: !!room?.voice_enabled });
 
   useEffect(() => {
     base44.entities.Room.get(id).then(async (r) => {
@@ -109,10 +95,20 @@ export default function WatchParty() {
   useEffect(() => {
     if (!user || !joinedRef.current || !room || room.owner_id === user.id || isMod || ghostRef.current) return;
     const stillIn = (room.participants || []).some((p) => p.user_id === user.id);
-    if (!stillIn) {
+    if (!stillIn && !kickedRef.current) {
       kickedRef.current = true;
-      toast({ title: 'Odadan atıldınız', variant: 'destructive' });
-      navigate('/');
+      (async () => {
+        try {
+          const me = await base44.entities.User.get(user.id);
+          if (me.role === 'banned' || me.membership_status === 'suspended') {
+            await base44.auth.logout();
+            window.location.href = '/login?banned=1';
+            return;
+          }
+        } catch {}
+        toast({ title: 'Odadan atıldınız', variant: 'destructive' });
+        navigate('/');
+      })();
     }
   }, [room?.participants, user?.id]);
 

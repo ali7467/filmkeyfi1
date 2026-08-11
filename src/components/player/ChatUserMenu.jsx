@@ -18,7 +18,8 @@ export default function ChatUserMenu({ userId, userName, userAvatar, roomId, onC
   const suspendUser = async () => {
     setLoading(true);
     try {
-      await base44.entities.User.update(userId, { role: 'banned' });
+      await base44.entities.User.update(userId, { role: 'banned', membership_status: 'suspended' });
+      await base44.entities.Notification.create({ user_id: userId, title: 'Hesabınız askıya alındı', body: 'Hesabınız yönetici tarafından askıya alınmıştır. Giriş yapamazsınız.', type: 'suspended' }).catch(() => {});
       if (roomId) await base44.functions.invoke('room-presence', { action: 'kick', room_id: roomId, target_id: userId }).catch(() => {});
       toast({ title: 'Kullanıcı askıya alındı', description: `${userName} artık giriş yapamaz` });
       onClose();
