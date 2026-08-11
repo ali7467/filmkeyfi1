@@ -15,6 +15,7 @@ export default async function(req) {
       full_name: u.full_name || '',
       avatar: u.avatar || '',
       member_id: u.member_id || '-',
+      role: u.role || '',
       created_date: u.created_date || null
     });
   } catch (e) {

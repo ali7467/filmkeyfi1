@@ -42,7 +42,9 @@ export default function Profile() {
 
   const save = async () => {
     try {
-      await base44.auth.updateMe({ username: form.username, full_name: form.full_name, phone: form.phone, avatar: form.avatar });
+      const updates = { username: form.username, phone: form.phone, avatar: form.avatar };
+      if (user.role !== 'moderator') updates.full_name = form.full_name;
+      await base44.auth.updateMe(updates);
       await reload();
       setEditing(false);
       toast({ title: 'Profil güncellendi' });
@@ -126,7 +128,7 @@ export default function Profile() {
           {editing ? (
             <>
               <Field label="Kullanıcı Adı" value={form.username} onChange={(v) => setForm({ ...form, username: v })} />
-              <Field label="Ad Soyad" value={form.full_name} onChange={(v) => setForm({ ...form, full_name: v })} />
+              <Field label="Ad Soyad" value={form.full_name} onChange={(v) => setForm({ ...form, full_name: v })} disabled={user.role === 'moderator'} />
               <Field label="Telefon" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
               <div className="flex gap-2 pt-2">
                 <button onClick={save} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold">Kaydet</button>
@@ -162,8 +164,8 @@ export default function Profile() {
   );
 }
 
-function Field({ label, value, onChange }) {
-  return <div><label className="text-sm text-muted-foreground">{label}</label><input value={value} onChange={(e) => onChange(e.target.value)} className="w-full bg-secondary/60 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-ring" /></div>;
+function Field({ label, value, onChange, disabled }) {
+  return <div><label className="text-sm text-muted-foreground">{label}</label><input value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} className={`w-full bg-secondary/60 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-ring ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`} /></div>;
 }
 function Row({ label, value }) { return <div className="flex justify-between text-sm py-1.5 border-b border-border last:border-0"><span className="text-muted-foreground">{label}</span><span className="font-medium text-right">{value}</span></div>; }
 function MovieGrid({ movies, empty }) {

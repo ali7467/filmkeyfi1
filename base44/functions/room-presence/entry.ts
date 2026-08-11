@@ -22,9 +22,10 @@ export default async function(req) {
     if (room.status === 'closed') return Response.json({ error: 'closed' }, { status: 403 });
 
     const me = await base44.asServiceRole.entities.User.get(user.id);
+    const isAdmin = me.role === 'admin';
     const isMod = me.role === 'admin' || me.role === 'moderator';
     const isOwner = room.owner_id === user.id;
-    const ghost = isMod && !isOwner;
+    const ghost = isAdmin && !isOwner;
 
     if (action === 'join') {
       if (me.membership_status !== 'active' && !isMod) {
@@ -38,7 +39,7 @@ export default async function(req) {
       if (ghost) return Response.json({ ok: true, ghost: true });
       const participants = room.participants || [];
       const already = participants.some((p) => p.user_id === user.id);
-      if (!already && room.password && !isOwner) {
+      if (!already && room.password && !isOwner && !isMod) {
         const [salt, hash] = room.password.split(':');
         if (!password || !salt || hash !== await sha256Hex(salt, password)) {
           await base44.asServiceRole.entities.SecurityLog.create({

@@ -22,7 +22,6 @@ export default function UserProfile() {
 
   if (loading) return <div className="h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
 
-  const isAdmin = me?.role === 'admin';
   const isSelf = me?.id === id;
 
   return (
@@ -32,7 +31,7 @@ export default function UserProfile() {
         <div className="bg-card border border-border rounded-2xl p-6 flex flex-col items-center text-center">
           {profile.avatar ? <Image src={profile.avatar} className="w-28 h-28 rounded-full object-cover" fittingType="fill" /> :
             <div className="w-28 h-28 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-4xl font-bold">{(profile.username || profile.full_name || '?')[0]}</div>}
-          <h1 className="text-2xl font-extrabold mt-4 flex items-center gap-2">{profile.username || profile.full_name || 'Kullanıcı'} {isAdmin && <Crown className="w-5 h-5 text-amber-400" />}</h1>
+          <h1 className="text-2xl font-extrabold mt-4 flex items-center gap-2">{profile.username || profile.full_name || 'Kullanıcı'} {(profile.role === 'admin' || profile.role === 'moderator') && <Crown className="w-5 h-5 text-amber-400" />}</h1>
           {profile.full_name && profile.username && <p className="text-sm text-muted-foreground">{profile.full_name}</p>}
           <div className="mt-4 inline-flex items-center gap-2 bg-secondary/60 rounded-full px-4 py-2">
             <Hash className="w-4 h-4 text-primary" />
