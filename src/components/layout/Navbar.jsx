@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Bell, User, Menu, X, LogOut } from 'lucide-react';
+import { Search, Bell, User, Menu, X, LogOut, Shield } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useCurrentUser } from '@/lib/useCurrentUser';
@@ -94,6 +94,10 @@ export default function Navbar() {
               {l.label}
             </Link>
           ))}
+          <Link to="/güvenlik-protokolü" onClick={() => setOpen(false)}
+            className="block px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground flex items-center gap-2 hover:bg-secondary">
+            <Shield className="w-4 h-4" /> Güvenlik Protokolü
+          </Link>
           <button onClick={logout} className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-destructive flex items-center gap-2">
             <LogOut className="w-4 h-4" /> Çıkış Yap
           </button>

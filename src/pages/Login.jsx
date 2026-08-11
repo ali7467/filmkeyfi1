@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { LogIn, Mail, Lock, Loader2, Eye, EyeOff, ArrowRight, Film, Sparkles, MessageSquare, Lock as LockIcon, Users } from "lucide-react";
 import AuthBackground from "@/components/auth/AuthBackground";
 import SupportWidget from "@/components/auth/SupportWidget";
+import DownloadButtons from "@/components/DownloadButtons";
 import { safeReturnTo } from "@/lib/authReturnTo";
 
 export default function Login() {
@@ -161,6 +162,12 @@ export default function Login() {
             <span>{f.label}</span>
           </div>
         ))}
+      </div>
+
+      {/* Mobil indirme butonları */}
+      <div className="mt-6">
+        <p className="text-center text-xs text-[#a0a0a0] mb-3">📱 Telefonuna indir, her zaman yanında</p>
+        <DownloadButtons variant="light" />
       </div>
 
       <p className="text-center text-xs text-[#555] mt-6">© 2024 Film Keyfi. Tüm hakları saklıdır.</p>
