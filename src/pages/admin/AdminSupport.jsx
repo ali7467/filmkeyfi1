@@ -4,6 +4,7 @@ import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
 import { Send, Trash2, XCircle } from 'lucide-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import UserBadge from '@/components/admin/UserBadge';
 
 export default function AdminSupport() {
   const { user: admin } = useCurrentUser();
@@ -11,11 +12,17 @@ export default function AdminSupport() {
   const [tickets, setTickets] = useState([]);
   const [active, setActive] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [profiles, setProfiles] = useState({});
   const [text, setText] = useState('');
   const [confirm, setConfirm] = useState(null);
   const endRef = useRef(null);
 
-  const load = () => { base44.entities.SupportTicket.list(200).then((t) => { setTickets(t); if (!active && t.length) setActive(t[0]); }).catch(() => {}); };
+  const load = () => { base44.entities.SupportTicket.list(200).then(async (t) => {
+    setTickets(t); if (!active && t.length) setActive(t[0]);
+    const uIds = [...new Set(t.map((tk) => tk.user_id).filter(Boolean))];
+    const ps = await Promise.all(uIds.map((id) => base44.functions.invoke('user-profile', { user_id: id }).catch(() => null)));
+    setProfiles(Object.fromEntries(uIds.map((id, i) => [id, ps[i]])));
+  }).catch(() => {}); };
   useEffect(load, []);
   useEffect(() => {
     if (!active) return;
@@ -56,14 +63,14 @@ export default function AdminSupport() {
           {tickets.map((t) => (
             <button key={t.id} onClick={() => setActive(t)} className={`w-full text-left p-3 rounded-lg border ${active?.id === t.id ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
               <p className="font-medium text-sm truncate">{t.subject}</p>
-              <p className="text-xs text-muted-foreground">{t.user_name} · <span className={t.status === 'new' ? 'text-amber-400' : t.status === 'answered' ? 'text-green-400' : ''}>{t.status}</span></p>
+              <p className="text-xs text-muted-foreground">{t.user_name} · {profiles[t.user_id]?.member_id ? `#${profiles[t.user_id].member_id} · ` : ''}<span className={t.status === 'new' ? 'text-amber-400' : t.status === 'answered' ? 'text-green-400' : ''}>{t.status}</span></p>
             </button>
           ))}
         </div>
         <div className="flex flex-col bg-card border border-border rounded-xl overflow-hidden">
           {active ? <>
             <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
-              <div><p className="font-semibold">{active.subject}</p><p className="text-xs text-muted-foreground">{active.user_name} · {active.category}</p></div>
+              <div className="min-w-0"><p className="font-semibold truncate">{active.subject}</p><div className="mt-1"><UserBadge userId={active.user_id} name={active.user_name} avatar={profiles[active.user_id]?.avatar} memberId={profiles[active.user_id]?.member_id} size="sm" /></div><p className="text-xs text-muted-foreground mt-1">{active.category}</p></div>
               <div className="flex items-center gap-2">
                 <select value={active.status} onChange={(e) => setStatus(e.target.value)} className="bg-secondary rounded-lg px-2 py-1 text-xs">
                   <option value="new">Yeni</option><option value="reviewing">İnceleniyor</option><option value="answered">Cevaplandı</option><option value="closed">Kapatıldı</option>

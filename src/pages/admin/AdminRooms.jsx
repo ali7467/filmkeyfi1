@@ -5,6 +5,7 @@ import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
 import { Image } from '@/components/ui/image';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import UserBadge from '@/components/admin/UserBadge';
 import { Trash2, DoorClosed, MessageSquareOff, MicOff, Crown, Users, Lock, Unlock, Calendar, Search, Plus, Folder, MessageSquare, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react';
 
 const PAGE_SIZE = 8;
@@ -31,7 +32,7 @@ export default function AdminRooms() {
       const mv = await Promise.all(movieIds.map((id) => base44.entities.Movie.get(id).catch(() => null)));
       const ow = await Promise.all(ownerIds.map((id) => base44.functions.invoke('user-profile', { user_id: id }).catch(() => null)));
       setMovies(Object.fromEntries(mv.filter(Boolean).map((m) => [m.id, m])));
-      setOwners(Object.fromEntries(ow.filter(Boolean).map((o) => [o.data?.id || o.id, o.data || o])));
+      setOwners(Object.fromEntries(ownerIds.map((id, i) => [id, ow[i]])));
       setLoading(false);
     }).catch(() => setLoading(false));
   };
@@ -126,7 +127,7 @@ export default function AdminRooms() {
                   <p className="text-xs text-muted-foreground mb-2 truncate">{r.movie_title || 'İçerik yok'}</p>
                   {/* Data Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                    <DataItem icon={Crown} label="Oda Sahibi" value={r.owner_name || '-'} />
+                    <div className="col-span-2 sm:col-span-1"><p className="text-[10px] text-muted-foreground mb-0.5">Oda Sahibi</p><UserBadge userId={r.owner_id} name={r.owner_name || '-'} avatar={owner?.avatar} memberId={owner?.member_id} size="sm" /></div>
                     <DataItem icon={Users} label="İzleyici" value={`${r.participants?.length || 0}/${r.max_users || 10}`} />
                     <DataItem icon={r.password ? Lock : Unlock} label="Oda Türü" value={r.password ? 'Şifreli' : 'Şifresiz'} />
                     <DataItem icon={Calendar} label="Oluşturulma" value={new Date(r.created_date).toLocaleDateString('tr-TR')} />

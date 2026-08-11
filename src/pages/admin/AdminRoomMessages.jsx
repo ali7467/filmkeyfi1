@@ -5,6 +5,7 @@ import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
 import { Image } from '@/components/ui/image';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import UserBadge from '@/components/admin/UserBadge';
 import { Trash2, Search, Send, Users, Crown, ChevronLeft, ChevronRight, Download, Copy, MoreVertical, Calendar, Hash, UserCircle, Shield } from 'lucide-react';
 
 const PAGE_SIZE = 8;
@@ -20,6 +21,7 @@ export default function AdminRoomMessages() {
   const [active, setActive] = useState(null);
   const [messages, setMessages] = useState([]);
   const [owner, setOwner] = useState(null);
+  const [participantProfiles, setParticipantProfiles] = useState({});
   const [confirm, setConfirm] = useState(null);
   const [confirmAll, setConfirmAll] = useState(false);
   const [search, setSearch] = useState('');
@@ -35,6 +37,8 @@ export default function AdminRoomMessages() {
     setOwner(null);
     base44.functions.invoke('user-profile', { user_id: active.owner_id }).then(setOwner).catch(() => {});
     base44.entities.RoomMessage.filter({ room_id: active.id }, 'created_date', 500).then(setMessages).catch(() => {});
+    const pIds = [...new Set((active.participants || []).map((p) => p.user_id))];
+    Promise.all(pIds.map((pid) => base44.functions.invoke('user-profile', { user_id: pid }).catch(() => null))).then((ps) => setParticipantProfiles(Object.fromEntries(pIds.map((pid, i) => [pid, ps[i]]))));
     setTab('messages');
   }, [active?.id]);
 
@@ -134,7 +138,7 @@ export default function AdminRoomMessages() {
                       <button onClick={copyRoomNo} className="text-muted-foreground hover:text-foreground shrink-0"><Copy className="w-3.5 h-3.5" /></button>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 mt-2">
-                      <InfoItem icon={UserCircle} label="Oda Sahibi" value={active.owner_name || '-'} />
+                      <div><p className="text-[10px] text-muted-foreground mb-0.5">Oda Sahibi</p><UserBadge userId={active.owner_id} name={active.owner_name || '-'} avatar={owner?.avatar} memberId={owner?.member_id} size="sm" /></div>
                       <InfoItem icon={Hash} label="Oda Numarası" value={roomNumber(active, 0, page)} />
                       <InfoItem icon={Calendar} label="Oluşturulma" value={new Date(active.created_date).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />
                       <div className="flex items-center gap-1.5">
@@ -161,16 +165,10 @@ export default function AdminRoomMessages() {
               {tab === 'participants' ? (
                 <div className="flex-1 overflow-y-auto p-4 space-y-2">
                   {(active.participants || []).length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">Katılımcı yok.</p> :
-                    (active.participants || []).map((p) => (
-                      <div key={p.user_id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/40">
-                        <Link to={`/kullanici/${p.user_id}`} className="shrink-0">
-                          {p.avatar ? <Image src={p.avatar} className="w-9 h-9 rounded-full object-cover" fittingType="fill" /> : <span className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-sm font-bold">{(p.name || '?')[0]}</span>}
-                        </Link>
-                        <Link to={`/kullanici/${p.user_id}`} className="flex-1 min-w-0 hover:underline">
-                          <p className="text-sm font-medium truncate">{p.name}{p.user_id === active.owner_id && <Crown className="w-3.5 h-3.5 text-amber-400 inline ml-1" />}</p>
-                        </Link>
-                      </div>
-                    ))}
+                    (active.participants || []).map((p) => {
+                      const prof = participantProfiles[p.user_id];
+                      return <div key={p.user_id} className="p-2 rounded-lg hover:bg-secondary/40"><UserBadge userId={p.user_id} name={p.name} avatar={p.avatar || prof?.avatar} memberId={prof?.member_id} size="md" isOwner={p.user_id === active.owner_id} /></div>;
+                    })}
                 </div>
               ) : tab === 'info' ? (
                 <div className="flex-1 overflow-y-auto p-4 space-y-2">

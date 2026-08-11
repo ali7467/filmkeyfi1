@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import UserBadge from '@/components/admin/UserBadge';
 
 const btn = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap';
 
@@ -105,11 +106,8 @@ export default function AdminUsers({ pendingOnly = false }) {
             return (
               <div key={u.id} className="bg-card border border-border rounded-xl p-3 flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center font-bold text-sm shrink-0">{(u.username || u.full_name || '?')[0]}</div>
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{u.username || u.full_name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{u.email}{u.member_id ? ` · #${u.member_id}` : ''}</p>
-                  </div>
+                  <UserBadge userId={u.id} name={u.username || u.full_name || '?'} avatar={u.avatar} memberId={u.member_id} size="md" />
+                  <p className="text-xs text-muted-foreground truncate hidden sm:block">{u.email}</p>
                 </div>
                 <span className={`text-xs px-2 py-1 rounded ${isActive ? 'bg-green-500/20 text-green-400' : u.membership_status === 'pending' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>{isActive ? 'Aktif' : u.membership_status === 'pending' ? 'Beklemede' : 'Askıya Alındı'}</span>
                 <div className="flex flex-wrap gap-1.5">
@@ -129,7 +127,7 @@ export default function AdminUsers({ pendingOnly = false }) {
       {detail && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setDetail(null)}>
           <div className="bg-card border border-border rounded-xl p-5 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-bold text-lg mb-3">{detail.username || detail.full_name}</h3>
+            <div className="mb-4"><UserBadge userId={detail.id} name={detail.username || detail.full_name || '?'} avatar={detail.avatar} memberId={detail.member_id} size="lg" /></div>
             <div className="space-y-1.5 text-sm">
               <p><span className="text-muted-foreground">Kullanıcı adı:</span> {detail.username || detail.full_name || '-'}</p>
               <p><span className="text-muted-foreground">Üye No:</span> {detail.member_id || '-'}</p>
