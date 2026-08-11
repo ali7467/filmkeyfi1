@@ -5,7 +5,7 @@ import { useCurrentUser } from '@/lib/useCurrentUser';
 import { useToast } from '@/components/ui/use-toast';
 import { Image } from '@/components/ui/image';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-import { Trash2, Search, Send, Users, Crown, LogIn, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trash2, Search, Send, Users, Crown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const PAGE_SIZE = 8;
 
@@ -86,7 +86,7 @@ export default function AdminRoomMessages() {
             <div className="flex items-center justify-center gap-1 mt-3 pt-3 border-t border-border">
               <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="p-1.5 rounded-lg hover:bg-secondary disabled:opacity-40"><ChevronLeft className="w-4 h-4" /></button>
               {Array.from({ length: totalPages }, (_, i) => (
-                <button key={i} onClick={() => setPage(i + 1)} className={`w-7 h-7 rounded-full text-xs font-medium ${page === i + 1 ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary'}`}>{i + 1}</button>
+                <button key={i} onClick={() => setPage(i + 1)} className={`w-7 h-7 rounded-full text-xs font-medium border ${page === i + 1 ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:bg-secondary'}`}>{i + 1}</button>
               ))}
               <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-1.5 rounded-lg hover:bg-secondary disabled:opacity-40"><ChevronRight className="w-4 h-4" /></button>
             </div>
@@ -142,8 +142,9 @@ export default function AdminRoomMessages() {
                     {messages.length === 0 ? <p className="text-sm text-muted-foreground text-center py-10">Mesaj yok.</p> :
                       messages.map((m) => (
                         m.type === 'system' ? (
-                          <div key={m.id} className="flex items-center justify-center gap-2 group">
-                            <span className="bg-secondary/60 rounded-full px-3 py-1.5 text-xs text-muted-foreground inline-flex items-center gap-1.5"><LogIn className="w-3 h-3" /> {m.text} · {new Date(m.created_date).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
+                          <div key={m.id} className="flex items-center justify-center gap-1.5 group">
+                            <span className="text-xs text-muted-foreground">{m.text}</span>
+                            <Users className="w-3.5 h-3.5 text-green-500" />
                             <button onClick={() => setConfirm(m)} className="opacity-0 group-hover:opacity-100 p-1 rounded bg-red-500/20 text-red-400"><Trash2 className="w-3 h-3" /></button>
                           </div>
                         ) : (
